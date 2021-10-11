@@ -1,13 +1,114 @@
-from PyQt5 import QtGui
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
+from PySide6.QtWidgets import *
+from PySide6.QtGui import *
+from PySide6.QtCore import *
 import sys
+class Toolbar(QToolBar):
+    def __init__(self, btnClick):
+        super(Toolbar, self).__init__()
 
-class App(QWidget):
+        self.buttons = {
+            "Line" : "Create line",
+            "Rectangle" : "Create rectangle",
+            "Circle" : "Create circle",
+            "Move" : "Move shape",
+            "Edit" : "Edit shape - resize or reshape" 
+        }
+        self.createToolbar(btnClick)
+
+    def createToolbar(self, btnClick):
+        for btn in self.buttons:
+            button = QToolButton()
+            button.setText(btn)
+            button.setStatusTip(self.buttons[btn])
+            button.setCheckable(True)
+            button.setAutoExclusive(True)
+            button.clicked.connect(btnClick)
+            self.addWidget(button)
+class Toolbox(QWidget):
+    def __init__(self, color, type):
+        super(Toolbox, self).__init__()
+        self.setAutoFillBackground(True)
+
+        palette = self.palette()
+        palette.setColor(QPalette.Window, QColor(color))
+        self.setPalette(palette)
+
+        if (type == 0):
+            self.lineInput()
+        elif (type == 1):
+            self.rectangleInput()
+        else :
+            self.circleInput()
+
+        # inputAX.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+    def lineInput(self):
+        self.layout = QFormLayout(self)
+        label = QLabel(self)
+        label.setText("Line")
+        self.layout.addRow(label)
+
+        self.createPoint("Point A:")
+        self.createPoint("Point B:")
+
+        submitBtn = QPushButton("Submit")
+        self.layout.addRow(submitBtn)
+
+    def rectangleInput(self):
+        self.layout = QFormLayout(self)
+        label = QLabel(self)
+        label.setText("Rectangle")
+        self.layout.addRow(label)
+
+        self.createPoint("Point A:")
+        self.createPoint("Point B:")
+        self.createPoint("Point C:")
+        self.createPoint("Point D:")
+
+        submitBtn = QPushButton("Submit")
+        self.layout.addRow(submitBtn)
+
+    def circleInput(self):
+        self.layout = QFormLayout(self)
+        label = QLabel(self)
+        label.setText("Rectangle")
+        self.layout.addRow(label)
+
+        self.createPoint("Center:")
+        self.createPositionInput("Radius:")
+        submitBtn = QPushButton("Submit")
+        self.layout.addRow(submitBtn)
+
+    def createPoint(self, label):
+        pointLabel = QLabel(self)
+        pointLabel.setText(label)
+        self.layout.addRow(pointLabel)
+        self.createPositionInput("X:")
+        self.createPositionInput("Y:")
+
+    def createPositionInput(self, name):
+        label = QLabel(self)
+        label.setText(name)
+        inputSpinBox = QDoubleSpinBox(self)
+        inputSpinBox.setMinimum(0.0);
+        inputSpinBox.setMaximum(1280.0);
+        inputSpinBox.setSingleStep(0.5)
+        self.layout.addRow(label,inputSpinBox)
+
+class Painter(QWidget):
+    def __init__(self, color):
+        super(Painter, self).__init__()
+        self.setAutoFillBackground(True)
+
+        palette = self.palette()
+        palette.setColor(QPalette.Window, QColor(color))
+        self.setPalette(palette)
+
+
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title='PaintPrime'
+        self.title='Kinga Lipiszko PS4'
         self.left=10
         self.top=10
         self.width=1280
@@ -17,25 +118,43 @@ class App(QWidget):
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left,self.top,self.width,self.height)
+        self.layout = QGridLayout()
+        self.layout.addWidget(Painter('white'),0,0,1,5)
+        self.toolbox = Toolbox('lightgray',1);
+        self.layout.addWidget(self.toolbox,0,6,1,1)
 
-        self.pointALabel = QLabel(self)
-        self.pointALabel.setText('A:')
-        self.pointALabel.move(620, 20)
+        self.addToolBar(Toolbar(self.onMyToolBarButtonClick))
+        self.setStatusBar(QStatusBar(self))
+        widget = QWidget()
+        widget.setLayout(self.layout)
+        self.setCentralWidget(widget)
 
-        self.aX = QLineEdit(self)
-        self.aX.move(660, 20)
-        self.aX.resize(50, 32)
+        self.label = QLabel("Click in this window")
+        self.label.move(320, 20)
 
-        self.aY = QLineEdit(self)
-        self.aY.move(720, 20)
-        self.aY.resize(50, 32)
+    def onMyToolBarButtonClick(self, s):
+        self.layout.removeWidget(self.toolbox)
+        if (self.sender().text() == "Line"):
+            self.toolbox = Toolbox('lightgray',0);
+        elif (self.sender().text() == "Rectangle"):
+            self.toolbox = Toolbox('lightgray',1);
+        elif (self.sender().text() == "Circle"):
+            self.toolbox = Toolbox('lightgray',2);
+        self.layout.addWidget(self.toolbox,0,6,1,1)
 
-        pybutton = QPushButton('OK', self)
-        pybutton.clicked.connect(self.clickMethod)
-        pybutton.resize(200,32)
-        pybutton.move(80, 60) 
+        print("click", self.sender().text())
 
-        self.show()
+    def mouseMoveEvent(self, e):
+        self.label.setText("mouseMoveEvent")
+
+    def mousePressEvent(self, e):
+        self.label.setText("mousePressEvent")
+
+    def mouseReleaseEvent(self, e):
+        self.label.setText("mouseReleaseEvent")
+
+    def mouseDoubleClickEvent(self, e):
+        self.label.setText("mouseDoubleClickEvent")
 
     def clickMethod(self):
         painter = QPainter(self)       
@@ -55,5 +174,6 @@ class App(QWidget):
 
 if __name__=='__main__':
         app=QApplication(sys.argv)
-        ex=App()
-        sys.exit(app.exec_())
+        painter=MainWindow()
+        painter.show()
+        app.exec()
