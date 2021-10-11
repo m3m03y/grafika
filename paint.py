@@ -3,6 +3,7 @@ from PySide6.QtGui import *
 from PySide6.QtCore import *
 import sys
 from dataclasses import dataclass
+objects = []
 
 @dataclass
 class Point:
@@ -48,7 +49,7 @@ class Toolbar(QToolBar):
             self.addWidget(button)
 
 class Toolbox(QWidget):
-    def __init__(self, color, type):
+    def __init__(self, color, type, p):
         super(Toolbox, self).__init__()
         self.setAutoFillBackground(True)
 
@@ -57,6 +58,7 @@ class Toolbox(QWidget):
         self.setPalette(palette)
         self.mode = 0
         self.inputs = []
+        self.painter = p
         if (type == 0):
             self.mode = 0
             self.lineInput()
@@ -146,6 +148,8 @@ class Toolbox(QWidget):
 
     def updateDraw(self,shape):
         print(shape)
+        objects.append(shape)
+        self.painter.update()
 
 class Painter(QWidget):
     def __init__(self, color):
@@ -161,12 +165,11 @@ class Painter(QWidget):
         
         self.points = QPolygon()
 
-        self.objects = []
 
     def paintEvent(self, event):
         painter = QPainter(self)
         
-        for obj in self.objects:
+        for obj in objects:
             if (isinstance(obj,Line)):
                 painter.setPen(QPen(Qt.red,  8, Qt.SolidLine))
                 painter.drawLine(obj.A, obj.B)
@@ -211,17 +214,17 @@ class Painter(QWidget):
                 A = self.lineStart
                 B = self.lineEnd
                 line = Line(A,B)
-                self.objects.append(line)
+                objects.append(line)
             elif (self.mode == 1):
                 A = self.lineStart
                 B = self.lineEnd
                 rectangle = Rectangle(A,B)
-                self.objects.append(rectangle)
+                objects.append(rectangle)
             elif (self.mode == 2):
                 A = self.lineStart
                 radius = max(abs(self.lineStart.x() - self.lineEnd.x()),abs(self.lineStart.y() - self.lineEnd.y()))
                 circle = Circle(A,radius)
-                self.objects.append(circle)
+                objects.append(circle)
 
         self.isDrawing = False;
         self.lineEnd = e.pos()
@@ -251,7 +254,7 @@ class MainWindow(QMainWindow):
         self.layout = QGridLayout()
         self.painter = Painter('white')
         self.layout.addWidget(self.painter,0,0,1,5)
-        self.toolbox = Toolbox('lightgray',3);
+        self.toolbox = Toolbox('lightgray',3,self.painter);
         self.layout.addWidget(self.toolbox,0,6,1,1)
 
         self.addToolBar(Toolbar(self.onMyToolBarButtonClick))
@@ -267,13 +270,13 @@ class MainWindow(QMainWindow):
         self.layout.removeWidget(self.toolbox)
         if (self.sender().text() == "Line"):
             self.painter.setMode(0)
-            self.toolbox = Toolbox('lightgray',0);
+            self.toolbox = Toolbox('lightgray',0,self.painter);
         elif (self.sender().text() == "Rectangle"):
             self.painter.setMode(1)
-            self.toolbox = Toolbox('lightgray',1);
+            self.toolbox = Toolbox('lightgray',1,self.painter);
         elif (self.sender().text() == "Circle"):
             self.painter.setMode(2)
-            self.toolbox = Toolbox('lightgray',2);
+            self.toolbox = Toolbox('lightgray',2,self.painter);
         self.layout.addWidget(self.toolbox,0,6,1,1)
 
         print("click", self.sender().text())
