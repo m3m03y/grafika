@@ -55,12 +55,16 @@ class Toolbox(QWidget):
         palette = self.palette()
         palette.setColor(QPalette.Window, QColor(color))
         self.setPalette(palette)
-
+        self.mode = 0
+        self.inputs = []
         if (type == 0):
+            self.mode = 0
             self.lineInput()
         elif (type == 1):
+            self.mode = 1
             self.rectangleInput()
         elif (type == 2):
+            self.mode = 2
             self.circleInput()
 
         # inputAX.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -75,6 +79,7 @@ class Toolbox(QWidget):
         self.createPoint("Point B:")
 
         submitBtn = QPushButton("Submit")
+        submitBtn.clicked.connect(self.onSubmitBtnClicked)
         self.layout.addRow(submitBtn)
 
     def rectangleInput(self):
@@ -101,6 +106,7 @@ class Toolbox(QWidget):
         self.createPoint("Center:")
         self.createPositionInput("Radius:")
         submitBtn = QPushButton("Submit")
+        submitBtn.clicked.connect(self.onSubmitBtnClicked)
         self.layout.addRow(submitBtn)
 
     def createPoint(self, name):
@@ -117,13 +123,29 @@ class Toolbox(QWidget):
         inputSpinBox.setMinimum(0.0);
         inputSpinBox.setMaximum(1280.0);
         inputSpinBox.setSingleStep(0.5)
+        self.inputs.append(inputSpinBox)
         self.layout.addRow(coordLabel,inputSpinBox)
 
     def onSubmitBtnClicked(self, s):
-        test = self.layout.findChildren(QDoubleSpinBox)
-        for t in test:
-            print(t.text())
-        print("SUBMIT CLICKED:" )
+        # if (len(self.inputs) > 3):
+        #     print("A: X={0} Y={1} B: X={2} Y={3}".format(self.inputs[0].text(),self.inputs[1].text(),self.inputs[2].text(),self.inputs[3].text()))
+        # else :
+        #     print("Center: X={0} Y={1} radius={2}".format(self.inputs[0].text(),self.inputs[1].text(), self.inputs[2].text()))
+        if (self.mode == 0):
+            A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
+            B = QPoint(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
+            shape = Line(A,B)
+        elif (self.mode == 1):
+            A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
+            B = QPoint(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
+            shape = Rectangle(A,B)
+        elif (self.mode == 2):
+            A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
+            shape = Circle(A,float(self.inputs[2].text().replace(",",".")))
+        self.updateDraw(shape)
+
+    def updateDraw(self,shape):
+        print(shape)
 
 class Painter(QWidget):
     def __init__(self, color):
@@ -143,24 +165,31 @@ class Painter(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setPen(QPen(Qt.blue,  8, Qt.SolidLine))
         
         for obj in self.objects:
-            print(obj)
             if (isinstance(obj,Line)):
+                painter.setPen(QPen(Qt.red,  8, Qt.SolidLine))
                 painter.drawLine(obj.A, obj.B)
             if (isinstance(obj,Rectangle)):
+                painter.setPen(QPen(Qt.green,  8, Qt.SolidLine))
                 painter.drawRect(QRect(obj.A, obj.B))
             if (isinstance(obj,Circle)):
-                print("This is circle")
+                painter.setPen(QPen(Qt.blue,  8, Qt.SolidLine))
+                onCircle = QPoint(obj.A.x() + obj.radius, obj.A.y() + obj.radius)
+                painter.drawEllipse(QRect(obj.A, onCircle))
 
         if not self.lineStart.isNull() and not self.lineEnd.isNull():
             if (self.mode == 0):
+                painter.setPen(QPen(Qt.red,  8, Qt.SolidLine))
                 painter.drawLine(self.lineStart, self.lineEnd)
             elif (self.mode == 1):
+                painter.setPen(QPen(Qt.green,  8, Qt.SolidLine))
                 painter.drawRect(QRect(self.lineStart, self.lineEnd))
             elif (self.mode == 2):
-                painter.drawEllipse(QRect(self.lineStart, self.lineEnd))
+                painter.setPen(QPen(Qt.blue,  8, Qt.SolidLine))
+                radius = max(abs(self.lineStart.x() - self.lineEnd.x()),abs(self.lineStart.y() - self.lineEnd.y()))
+                onCircle = QPoint(self.lineStart.x() + radius, self.lineStart.y() + radius)
+                painter.drawEllipse(QRect(self.lineStart, onCircle))
 
     def mouseMoveEvent(self, e):
         if self.isDrawing :
@@ -189,8 +218,10 @@ class Painter(QWidget):
                 rectangle = Rectangle(A,B)
                 self.objects.append(rectangle)
             elif (self.mode == 2):
-                painter.drawEllipse(QRect(self.lineStart, self.lineEnd))
-            print(self.objects)
+                A = self.lineStart
+                radius = max(abs(self.lineStart.x() - self.lineEnd.x()),abs(self.lineStart.y() - self.lineEnd.y()))
+                circle = Circle(A,radius)
+                self.objects.append(circle)
 
         self.isDrawing = False;
         self.lineEnd = e.pos()
@@ -246,7 +277,7 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.toolbox,0,6,1,1)
 
         print("click", self.sender().text())
-
+        
 if __name__=='__main__':
         app=QApplication(sys.argv)
         painter=MainWindow()
