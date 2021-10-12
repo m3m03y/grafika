@@ -15,28 +15,38 @@ class Point:
     def __init__(self, x = 0, y = 0):
         self.x = x
         self.y = y
+
+    def __str__(self):
+         return "X:" + str(self.x) + " Y:" + str(self.y)
 class Shape:
     def __init__(self, A):
         self.A = A
+    def __str__(self):
+        return str(self.A)
 class Line(Shape):
     def __init__(self, A, B, isSelected = False, color = Qt.red):
         super().__init__(A)
         self.B = B
         self.isSelected = isSelected
         self.color = color
+    def __str__(self):
+        return "A:" + str(self.A) + " B:" + str(self.B)
 class Rectangle(Shape):
     def __init__(self, A, B, isSelected = False, color = Qt.green):
         super().__init__(A)
         self.B = B
         self.isSelected = isSelected
         self.color = color
+    def __str__(self):
+        return "A:" + str(self.A) + " B:" + str(self.B)
 class Circle(Shape):
     def __init__(self, A, radius, isSelected = False, color = Qt.blue):
         super().__init__(A)
         self.radius = radius
         self.isSelected = isSelected
         self.color = color
-
+    def __str__(self):
+        return "Center:" + str(self.A) + " radius:" + str(self.radius)
 class Toolbar(QToolBar):
     def __init__(self, btnClick):
         super(Toolbar, self).__init__()
@@ -304,6 +314,10 @@ class Painter(QWidget):
             self.isDrawing = True;
             self.lineStart = e.pos()
             self.lineEnd = e.pos()
+        if e.button() == Qt.RightButton:
+            print(e.pos())
+        if e.button() == Qt.MiddleButton:
+            print(objects)
 
     def mouseReleaseEvent(self, e):
         if self.isDrawing:
@@ -311,16 +325,43 @@ class Painter(QWidget):
                 A = Point(self.lineStart.x(),self.lineStart.y())
                 B = Point(self.lineEnd.x(),self.lineEnd.y())
                 line = Line(A,B)
+                if ((abs(A.x - B.x) <= brushSize/2) & (abs(A.y - B.y) <= brushSize/2)):
+                    button = QMessageBox.critical(
+                        self,
+                        "Invalid input!",
+                        "Points must not be on the same place",
+                        buttons=QMessageBox.Ignore,
+                        defaultButton=QMessageBox.Ignore,
+                    )
+                    return
                 objects.append(line)
             elif (self.mode == 1):
                 A = Point(self.lineStart.x(),self.lineStart.y())
                 B = Point(self.lineEnd.x(),self.lineEnd.y())
                 rectangle = Rectangle(A,B)
+                if ((abs(A.x - B.x) <= brushSize/2) & (abs(A.y - B.y) <= brushSize/2)):
+                    button = QMessageBox.critical(
+                        self,
+                        "Invalid input!",
+                        "Points must not be on the same place",
+                        buttons=QMessageBox.Ignore,
+                        defaultButton=QMessageBox.Ignore,
+                    )
+                    return
                 objects.append(rectangle)
             elif (self.mode == 2):
                 A = Point(self.lineStart.x(),self.lineStart.y())
                 radius = math.sqrt(abs(self.lineStart.x() - self.lineEnd.x())**2 + abs(self.lineStart.y() - self.lineEnd.y())**2)
                 circle = Circle(A,radius)
+                if (radius == 0):
+                    button = QMessageBox.critical(
+                        self,
+                        "Invalid input!",
+                        "Radius cannot equals 0",
+                        buttons=QMessageBox.Ignore,
+                        defaultButton=QMessageBox.Ignore,
+                    )
+                    return
                 objects.append(circle)
             self.isDrawing = False;
 
@@ -393,43 +434,46 @@ class Painter(QWidget):
         return False
     
     def checkIsOnRectangle(self,obj,pos):
-        width = obj.A.x - obj.B.x
-        height = obj.A.y - obj.B.y 
-        A = obj.A
-        B = Point(obj.A.x + width, obj.A.y)
-        C = obj.B
-        D = Point(obj.A.x, obj.A.y + height)
-        a = Line(A,B)
-        b = Line(B,C)
-        c = Line(C,D)
-        d = Line(D,A)
-        res1 = self.checkIsOnLine(a,pos)
-        res2 = self.checkIsOnLine(b,pos)
-        res3 = self.checkIsOnLine(c,pos)
-        res4 = self.checkIsOnLine(d,pos)
-        return res1 | res2 | res3 | res4
+        minX = min(obj.A.x, obj.B.x)
+        maxX = max(obj.A.x, obj.B.x)        
+        minY = min(obj.A.y, obj.B.y)
+        maxY = max(obj.A.y, obj.B.y)
+        if not ((self.checkBetweenLines(minX - (brushSize/2), maxX + (brushSize/2), pos.x())) & (self.checkBetweenLines(minY - (brushSize/2), maxY + (brushSize/2), pos.y()))): return False
+        return (abs(pos.x() - obj.A.x) <= brushSize/2) | (abs(pos.x() - obj.B.x) <= brushSize/2) | (abs(pos.y() - obj.A.y) < brushSize/2) | (abs(pos.y() - obj.B.y) < brushSize/2)
     
+    def checkBetweenLines(self,line1,line2,current):
+        return (current >= line1) & (current <= line2)
+
     def checkIsOnCircle(self,obj,pos):
         radius =  math.sqrt(abs(obj.A.x - pos.x())**2 + abs(obj.A.y - pos.y())**2)
         return abs(round(radius) - round(obj.radius)) < 8
 
     def checkIsOnLine(self, obj, pos):
-        if ((pos.x() > obj.A.x) & (pos.x() > obj.B.x)) or ((pos.x() < obj.A.x) & (pos.x() < obj.B.x)) : return False;
-        if ((pos.y() > obj.A.y) & (pos.y() > obj.B.y)) or ((pos.y() < obj.A.y) & (pos.y() < obj.B.y)) : return False;
+        # FIRST: check if is between A and B
+        minX = min(obj.A.x, obj.B.x)
+        maxX = max(obj.A.x, obj.B.x)        
+        minY = min(obj.A.y, obj.B.y)
+        maxY = max(obj.A.y, obj.B.y)
+        if not ((self.checkBetweenLines(minX - (brushSize/2), maxX + (brushSize/2), pos.x())) & (self.checkBetweenLines(minY - (brushSize/2), maxY + (brushSize/2), pos.y()))): return False
+        print(obj,pos)
+
+        # SECOND: count distance between points
         ABx = abs(obj.A.x - obj.B.x)
         ABy = abs(obj.A.y - obj.B.y)
         ACx = abs(obj.A.x - pos.x())
         ACy = abs(obj.A.y - pos.y())
         BCx = abs(obj.B.x - pos.x())
         BCy = abs(obj.B.y - pos.y())
-        if (ABx == 0) & (ACx == 0) & (BCx == 0): return True
-        if (ABy == 0) & (ACy == 0) & (BCy == 0): return True
-        if (ABy != 0) :ab = round(abs(obj.A.x - obj.B.x) / abs(obj.A.y - obj.B.y))
-        else : ab = 0
-        if (ACy != 0) :ac = round(abs(obj.A.x - pos.x()) / abs(obj.A.y - pos.y()))
-        else : ac = 0
-        if (BCy != 0) :bc = round(abs(pos.x() - obj.B.x) / abs(pos.y() - obj.B.y))
-        else : bc = 0
+
+        # THIRD: if A and B have the same X or Y then C also have to have the same coord +/- brushSize/2
+        if (ABx == 0) : return (ACx < brushSize / 2) & (BCx < brushSize / 2)
+        if (ABy == 0) : return (ACy < brushSize / 2) & (BCy < brushSize / 2)
+        if (ACx == 0) | (ACy == 0) | (BCx == 0) | (BCy == 0) : return False
+
+        ab = round(ABx / ABy)
+        ac = round(ACx / ACy)
+        bc = round(BCx / BCy)
+
         print(str(ab) + " " + str(ac) + " "+ str(bc))
         return (abs(ab - ac) < 8) & (abs(ab - bc) < 8) & (abs(ac - bc) < 8)
 class MainWindow(QMainWindow):
