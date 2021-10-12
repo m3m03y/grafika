@@ -151,7 +151,6 @@ class Toolbox(QWidget):
         self.updateDraw(shape)
 
     def updateDraw(self,shape):
-        print(shape)
         objects.append(shape)
         self.painter.update()
 
@@ -199,16 +198,25 @@ class Painter(QWidget):
             self.points << e.pos()
             self.update()
         elif (self.mode == 3) & (self.selectedIndex >= 0) :
-            self.moveLine(e.pos())
+            if (isinstance(objects[self.selectedIndex],Line)):
+                self.moveLine(e.pos())
+            elif (isinstance(objects[self.selectedIndex],Circle)):
+                self.moveCircle(e.pos())
+            elif (isinstance(objects[self.selectedIndex],Rectangle)):
+                self.moveLine(e.pos())
             self.lastPos = e.pos()
             self.update()
+
+    def moveCircle(self,pos):
+        A = QPoint(objects[self.selectedIndex].A.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].A.y() + (pos.y() - self.lastPos.y()))
+        objects[self.selectedIndex].A = A
 
     def moveLine(self,pos):
         A = QPoint(objects[self.selectedIndex].A.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].A.y() + (pos.y() - self.lastPos.y()))
         B = QPoint(objects[self.selectedIndex].B.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].B.y() + (pos.y() - self.lastPos.y()))
         objects[self.selectedIndex].A = A
         objects[self.selectedIndex].B = B
-    
+
     def mousePressEvent(self, e):
         if self.mode == 3:
             self.findObject(e.pos())
@@ -255,7 +263,6 @@ class Painter(QWidget):
         self.mode = mode
 
     def findObject(self,pos):
-        print(pos)
         for i in range(len(objects)):
             obj = objects[i]
             if (isinstance(obj,Line)):
@@ -265,12 +272,45 @@ class Painter(QWidget):
                     self.update()
                     break
             if (isinstance(obj,Rectangle)):
-                a = 0
+                if (self.checkIsOnRectangle(obj,pos)):
+                    obj.isSelected = True
+                    self.selectedIndex = i
+                    self.update()
+                    break
             if (isinstance(obj,Circle)):
-                a = 0
+                if (self.checkIsOnCircle(obj,pos)):
+                    obj.isSelected = True
+                    self.selectedIndex = i
+                    self.update()
+                    break
+    
+    def checkIsOnRectangle(self,obj,pos):
+        print("checking if rectangle")
+        width = obj.A.x() - obj.B.x()
+        height = obj.A.y() - obj.B.y() 
+        A = obj.A
+        B = QPoint(obj.A.x() + width, obj.A.y())
+        C = obj.B
+        D = QPoint(obj.A.x(), obj.A.y() + height)
+        a = Line(A,B)
+        b = Line(B,C)
+        c = Line(C,D)
+        d = Line(D,A)
+        res1 = self.checkIsOnLine(a,pos)
+        res2 = self.checkIsOnLine(b,pos)
+        res3 = self.checkIsOnLine(c,pos)
+        res4 = self.checkIsOnLine(d,pos)
+        return res1 | res2 | res3 | res4
+    
+    def checkIsOnCircle(self,obj,pos):
+        # print(obj)
+        radius =  math.sqrt(abs(obj.A.x() - pos.x())**2 + abs(obj.A.y() - pos.y())**2)
+        # print(radius)
+        return abs(round(radius) - round(obj.radius)) < 10
 
     def checkIsOnLine(self, obj, pos):
-        print(str(obj.A) + " " + str(obj.B) + " "+ str(pos))
+        if ((pos.x() > obj.A.x()) & (pos.x() > obj.B.x())) or ((pos.x() < obj.A.x()) & (pos.x() < obj.B.x())) : return False;
+        if ((pos.y() > obj.A.y()) & (pos.y() > obj.B.y())) or ((pos.y() < obj.A.y()) & (pos.y() < obj.B.y())) : return False;
         ABx = abs(obj.A.x() - obj.B.x())
         ABy = abs(obj.A.y() - obj.B.y())
         ACx = abs(obj.A.x() - pos.x())
@@ -281,10 +321,13 @@ class Painter(QWidget):
         if (ABy == 0) & (ACy == 0) & (BCy == 0): return True
         if (ABy != 0) :ab = round(abs(obj.A.x() - obj.B.x()) / abs(obj.A.y() - obj.B.y()))
         else : ab = 0
-        ac = round(abs(obj.A.x() - pos.x()) / abs(obj.A.y() - pos.y()))
-        bc = round(abs(pos.x() - obj.B.x()) / abs(pos.y() - obj.B.y()))
+        if (ACy != 0) :ac = round(abs(obj.A.x() - pos.x()) / abs(obj.A.y() - pos.y()))
+        else : ac = 0
+        if (BCy != 0) :bc = round(abs(pos.x() - obj.B.x()) / abs(pos.y() - obj.B.y()))
+        else : bc = 0
         print(str(ab) + " " + str(ac) + " "+ str(bc))
-        return (ab == ac) & (ab == bc) & (ac == bc)
+        return (abs(ab - ac) < 10) & (abs(ab - bc) < 10) & (abs(ac - bc) < 10)
+
     # def mouseDoubleClickEvent(self, e):
     #     print("mouseDoubleClickEvent")
 
@@ -334,8 +377,6 @@ class MainWindow(QMainWindow):
             self.painter.setMode(4)
             self.toolbox = Toolbox('lightgray',2,self.painter);
         self.layout.addWidget(self.toolbox,0,6,1,1)
-
-        print("click", self.sender().text())
         
 if __name__=='__main__':
         app=QApplication(sys.argv)
