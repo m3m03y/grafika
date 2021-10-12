@@ -206,23 +206,22 @@ class Painter(QWidget):
                 self.moveLine(e.pos())
             self.lastPos = e.pos()
             self.update()
-
-    def moveCircle(self,pos):
-        A = QPoint(objects[self.selectedIndex].A.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].A.y() + (pos.y() - self.lastPos.y()))
-        objects[self.selectedIndex].A = A
-
-    def moveLine(self,pos):
-        A = QPoint(objects[self.selectedIndex].A.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].A.y() + (pos.y() - self.lastPos.y()))
-        B = QPoint(objects[self.selectedIndex].B.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].B.y() + (pos.y() - self.lastPos.y()))
-        objects[self.selectedIndex].A = A
-        objects[self.selectedIndex].B = B
+        elif (self.mode == 4) & (self.selectedIndex >= 0) :
+            if (isinstance(objects[self.selectedIndex],Line)):
+                self.resizeLine(e.pos())
+            elif (isinstance(objects[self.selectedIndex],Circle)):
+                self.resizeCircle(e.pos())
+            elif (isinstance(objects[self.selectedIndex],Rectangle)):
+                self.resizeLine(e.pos())
+            self.lastPos = e.pos()
+            self.update()
 
     def mousePressEvent(self, e):
         if self.mode == 3:
             self.findObject(e.pos())
             self.lastPos = e.pos()
-        elif self.mode == 4:
-            print("is resizing!!!")
+        elif (self.mode == 4) & (e.button() == Qt.LeftButton):
+            self.findObject(e.pos())
         elif e.button() == Qt.LeftButton:
             self.isDrawing = True;
             self.lineStart = e.pos()
@@ -247,11 +246,28 @@ class Painter(QWidget):
                 objects.append(circle)
             self.isDrawing = False;
 
-        elif (self.mode == 3) & (self.selectedIndex >= 0):
+        elif ((self.mode == 3) | (self.mode == 4)) & (self.selectedIndex >= 0):
             objects[self.selectedIndex].isSelected = False
             self.selectedIndex = -1
         self.resetPoints()
         self.update()
+
+    def resizeLine(self,pos):
+        objects[self.selectedIndex].B = pos
+
+    def resizeCircle(self, pos):
+        obj = objects[self.selectedIndex]
+        objects[self.selectedIndex].radius = math.sqrt(abs(obj.A.x() - pos.x())**2 + abs(obj.A.y() - pos.y())**2)
+
+    def moveCircle(self,pos):
+        A = QPoint(objects[self.selectedIndex].A.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].A.y() + (pos.y() - self.lastPos.y()))
+        objects[self.selectedIndex].A = A
+
+    def moveLine(self,pos):
+        A = QPoint(objects[self.selectedIndex].A.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].A.y() + (pos.y() - self.lastPos.y()))
+        B = QPoint(objects[self.selectedIndex].B.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].B.y() + (pos.y() - self.lastPos.y()))
+        objects[self.selectedIndex].A = A
+        objects[self.selectedIndex].B = B
 
     def resetPoints(self):
         self.lineStart = QPoint()
