@@ -490,7 +490,7 @@ class MainWindow(QMainWindow):
             self.saveFile()
         elif (self.sender().text() == "Open"):
             self.setToolBoxWithPainter(-1)
-            print("Open file")
+            self.openFile()
 
     def setToolBox(self,mode,isEditMode):
         self.toolbox = Toolbox(mode,self.painter,isEditMode);
@@ -511,7 +511,14 @@ class MainWindow(QMainWindow):
             "JSON(*.json) ")
  
         if filePath == "":
-            return            
+            return        
+
+    def openFile(self):
+        filePath, _ = QFileDialog.getOpenFileName(self, 'Open File', "",
+            "JSON(*.json) ")
+ 
+        if filePath == "":
+            return         
         
 if __name__=='__main__':
         app=QApplication(sys.argv)
