@@ -5,6 +5,9 @@ import sys
 import math
 from dataclasses import dataclass
 objects = []
+selectedIndex = []
+brushSize = 8
+editMode = False
 
 @dataclass
 class Point:
@@ -42,7 +45,10 @@ class Toolbar(QToolBar):
             "Rectangle" : "Create rectangle",
             "Circle" : "Create circle",
             "Move" : "Move shape",
-            "Edit" : "Edit shape - resize or reshape" 
+            "Edit" : "Edit shape - resize or reshape",
+            "Clear" : "Clear all shapes",
+            "Save" : "Save current workspace",
+            "Open" : "Open saved workspace"
         }
         self.createToolbar(btnClick)
 
@@ -57,27 +63,22 @@ class Toolbar(QToolBar):
             self.addWidget(button)
 
 class Toolbox(QWidget):
-    def __init__(self, color, type, p):
+    def __init__(self, color, mode, p):
         super(Toolbox, self).__init__()
         self.setAutoFillBackground(True)
 
         palette = self.palette()
         palette.setColor(QPalette.Window, QColor(color))
         self.setPalette(palette)
-        self.mode = 0
+        self.mode = mode
         self.inputs = []
         self.painter = p
-        if (type == 0):
-            self.mode = 0
+        if (mode == 0):
             self.lineInput()
-        elif (type == 1):
-            self.mode = 1
+        elif (mode == 1):
             self.rectangleInput()
-        elif (type == 2):
-            self.mode = 2
+        elif (mode == 2):
             self.circleInput()
-
-        # inputAX.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
     def lineInput(self):
         self.layout = QFormLayout(self)
@@ -100,8 +101,6 @@ class Toolbox(QWidget):
 
         self.createPoint("Point A:")
         self.createPoint("Point B:")
-        # self.createPoint("Point C:")
-        # self.createPoint("Point D:")
 
         submitBtn = QPushButton("Submit")
         submitBtn.clicked.connect(self.onSubmitBtnClicked)
@@ -155,26 +154,25 @@ class Toolbox(QWidget):
         self.painter.update()
 
 class Painter(QWidget):
-    def __init__(self, color):
+    def __init__(self, color, editFunc):
         super(Painter, self).__init__()
 
-        self.mode = 0
+        self.mode = -1
         self.isDrawing = False
         self.lastPos = QPoint()
 
         self.lineStart = QPoint()
         self.lineEnd = QPoint()
         self.image = QImage(self.size(), QImage.Format_RGB32)
+        selectedIndex.append(-1)
+        self.editFunc = editFunc
         
-        self.points = QPolygon()
-        self.selectedIndex = -1
-
     def paintEvent(self, event):
         painter = QPainter(self)
         
         for obj in objects:
-            if obj.isSelected: painter.setPen(QPen(obj.color,  8, Qt.DashLine))
-            else: painter.setPen(QPen(obj.color,  8, Qt.SolidLine))
+            if obj.isSelected: painter.setPen(QPen(obj.color,  brushSize, Qt.DashLine))
+            else: painter.setPen(QPen(obj.color,  brushSize, Qt.SolidLine))
             if (isinstance(obj,Line)):
                 painter.drawLine(obj.A, obj.B)
             if (isinstance(obj,Rectangle)):
@@ -183,7 +181,7 @@ class Painter(QWidget):
                 painter.drawEllipse(obj.A,obj.radius,obj.radius)
 
         if not self.lineStart.isNull() and not self.lineEnd.isNull():
-            painter.setPen(QPen(Qt.black,  8, Qt.SolidLine))
+            painter.setPen(QPen(Qt.black,  brushSize, Qt.SolidLine))
             if (self.mode == 0):
                 painter.drawLine(self.lineStart, self.lineEnd)
             elif (self.mode == 1):
@@ -195,28 +193,28 @@ class Painter(QWidget):
     def mouseMoveEvent(self, e):
         if self.isDrawing :
             self.lineEnd = e.pos()
-            self.points << e.pos()
             self.update()
-        elif (self.mode == 3) & (self.selectedIndex >= 0) :
-            if (isinstance(objects[self.selectedIndex],Line)):
+        elif (self.mode == 3) & (selectedIndex[0] >= 0) :
+            if (isinstance(objects[selectedIndex[0]],Line)):
                 self.moveLine(e.pos())
-            elif (isinstance(objects[self.selectedIndex],Circle)):
+            elif (isinstance(objects[selectedIndex[0]],Circle)):
                 self.moveCircle(e.pos())
-            elif (isinstance(objects[self.selectedIndex],Rectangle)):
+            elif (isinstance(objects[selectedIndex[0]],Rectangle)):
                 self.moveLine(e.pos())
             self.lastPos = e.pos()
             self.update()
-        elif (self.mode == 4) & (self.selectedIndex >= 0) :
-            if (isinstance(objects[self.selectedIndex],Line)):
+        elif (self.mode == 4) & (selectedIndex[0] >= 0) :
+            if (isinstance(objects[selectedIndex[0]],Line)):
                 self.resizeLine(e.pos())
-            elif (isinstance(objects[self.selectedIndex],Circle)):
+            elif (isinstance(objects[selectedIndex[0]],Circle)):
                 self.resizeCircle(e.pos())
-            elif (isinstance(objects[self.selectedIndex],Rectangle)):
+            elif (isinstance(objects[selectedIndex[0]],Rectangle)):
                 self.resizeLine(e.pos())
             self.lastPos = e.pos()
             self.update()
 
     def mousePressEvent(self, e):
+        print(e.pos())
         if self.mode == 3:
             self.findObject(e.pos())
             self.lastPos = e.pos()
@@ -246,28 +244,33 @@ class Painter(QWidget):
                 objects.append(circle)
             self.isDrawing = False;
 
-        elif ((self.mode == 3) | (self.mode == 4)) & (self.selectedIndex >= 0):
-            objects[self.selectedIndex].isSelected = False
-            self.selectedIndex = -1
+        elif ((self.mode == 3) | (self.mode == 4)) & (selectedIndex[0] >= 0):
+            objects[selectedIndex[0]].isSelected = False
+            selectedIndex[0] = -1
         self.resetPoints()
         self.update()
+    
+    def mouseDoubleClickEvent(self, e):
+        if (self.mode == 4):
+            self.findObject(e.pos())
+            self.editFunc()
 
     def resizeLine(self,pos):
-        objects[self.selectedIndex].B = pos
+        objects[selectedIndex[0]].B = pos
 
     def resizeCircle(self, pos):
-        obj = objects[self.selectedIndex]
-        objects[self.selectedIndex].radius = math.sqrt(abs(obj.A.x() - pos.x())**2 + abs(obj.A.y() - pos.y())**2)
+        obj = objects[selectedIndex[0]]
+        objects[selectedIndex[0]].radius = math.sqrt(abs(obj.A.x() - pos.x())**2 + abs(obj.A.y() - pos.y())**2)
 
     def moveCircle(self,pos):
-        A = QPoint(objects[self.selectedIndex].A.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].A.y() + (pos.y() - self.lastPos.y()))
-        objects[self.selectedIndex].A = A
+        A = QPoint(objects[selectedIndex[0]].A.x() + (pos.x() - self.lastPos.x()),objects[selectedIndex[0]].A.y() + (pos.y() - self.lastPos.y()))
+        objects[selectedIndex[0]].A = A
 
     def moveLine(self,pos):
-        A = QPoint(objects[self.selectedIndex].A.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].A.y() + (pos.y() - self.lastPos.y()))
-        B = QPoint(objects[self.selectedIndex].B.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].B.y() + (pos.y() - self.lastPos.y()))
-        objects[self.selectedIndex].A = A
-        objects[self.selectedIndex].B = B
+        A = QPoint(objects[selectedIndex[0]].A.x() + (pos.x() - self.lastPos.x()),objects[selectedIndex[0]].A.y() + (pos.y() - self.lastPos.y()))
+        B = QPoint(objects[selectedIndex[0]].B.x() + (pos.x() - self.lastPos.x()),objects[selectedIndex[0]].B.y() + (pos.y() - self.lastPos.y()))
+        objects[selectedIndex[0]].A = A
+        objects[selectedIndex[0]].B = B
 
     def resetPoints(self):
         self.lineStart = QPoint()
@@ -284,24 +287,23 @@ class Painter(QWidget):
             if (isinstance(obj,Line)):
                 if (self.checkIsOnLine(obj,pos)):
                     obj.isSelected = True
-                    self.selectedIndex = i
+                    selectedIndex[0] = i
                     self.update()
                     break
             if (isinstance(obj,Rectangle)):
                 if (self.checkIsOnRectangle(obj,pos)):
                     obj.isSelected = True
-                    self.selectedIndex = i
+                    selectedIndex[0] = i
                     self.update()
                     break
             if (isinstance(obj,Circle)):
                 if (self.checkIsOnCircle(obj,pos)):
                     obj.isSelected = True
-                    self.selectedIndex = i
+                    selectedIndex[0] = i
                     self.update()
                     break
     
     def checkIsOnRectangle(self,obj,pos):
-        print("checking if rectangle")
         width = obj.A.x() - obj.B.x()
         height = obj.A.y() - obj.B.y() 
         A = obj.A
@@ -319,10 +321,8 @@ class Painter(QWidget):
         return res1 | res2 | res3 | res4
     
     def checkIsOnCircle(self,obj,pos):
-        # print(obj)
         radius =  math.sqrt(abs(obj.A.x() - pos.x())**2 + abs(obj.A.y() - pos.y())**2)
-        # print(radius)
-        return abs(round(radius) - round(obj.radius)) < 10
+        return abs(round(radius) - round(obj.radius)) < 8
 
     def checkIsOnLine(self, obj, pos):
         if ((pos.x() > obj.A.x()) & (pos.x() > obj.B.x())) or ((pos.x() < obj.A.x()) & (pos.x() < obj.B.x())) : return False;
@@ -342,10 +342,7 @@ class Painter(QWidget):
         if (BCy != 0) :bc = round(abs(pos.x() - obj.B.x()) / abs(pos.y() - obj.B.y()))
         else : bc = 0
         print(str(ab) + " " + str(ac) + " "+ str(bc))
-        return (abs(ab - ac) < 10) & (abs(ab - bc) < 10) & (abs(ac - bc) < 10)
-
-    # def mouseDoubleClickEvent(self, e):
-    #     print("mouseDoubleClickEvent")
+        return (abs(ab - ac) < 8) & (abs(ab - bc) < 8) & (abs(ac - bc) < 8)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -361,7 +358,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left,self.top,self.width,self.height)
         self.layout = QGridLayout()
-        self.painter = Painter('white')
+        self.painter = Painter('white', self.editShape)
         self.layout.addWidget(self.painter,0,0,1,5)
         self.toolbox = Toolbox('lightgray',3,self.painter);
         self.layout.addWidget(self.toolbox,0,6,1,1)
@@ -375,25 +372,55 @@ class MainWindow(QMainWindow):
         self.label = QLabel("Click in this window")
         self.label.move(320, 20)
 
+    def editShape(self):
+        obj = objects[selectedIndex[0]]
+        self.layout.removeWidget(self.toolbox)
+        editMode = True
+        if (isinstance(obj,Line)):
+            self.setToolBox(0)
+        elif (isinstance(obj,Rectangle)):
+            self.setToolBox(1)
+        elif (isinstance(obj,Circle)):
+            self.setToolBox(2)
+
     def onMyToolBarButtonClick(self, s):
         self.layout.removeWidget(self.toolbox)
         if (self.sender().text() == "Line"):
-            self.painter.setMode(0)
-            self.toolbox = Toolbox('lightgray',0,self.painter);
+            self.setToolBoxWithPainter(0)
         elif (self.sender().text() == "Rectangle"):
-            self.painter.setMode(1)
-            self.toolbox = Toolbox('lightgray',1,self.painter);
+            self.setToolBoxWithPainter(1)
         elif (self.sender().text() == "Circle"):
-            self.painter.setMode(2)
-            self.toolbox = Toolbox('lightgray',2,self.painter);
+            self.setToolBoxWithPainter(2)
         elif (self.sender().text() == "Move"):
+            self.setToolBoxWithPainter(-1)
             self.painter.setMode(3)
-            self.toolbox = Toolbox('lightgray',2,self.painter);
         elif (self.sender().text() == "Edit"):
+            self.setToolBoxWithPainter(-1)
             self.painter.setMode(4)
-            self.toolbox = Toolbox('lightgray',2,self.painter);
+        elif (self.sender().text() == "Clear"):
+            self.setToolBoxWithPainter(-1)
+            self.clearScreen()
+        elif (self.sender().text() == "Save"):
+            self.setToolBoxWithPainter(-1)
+            print("Save file")
+        elif (self.sender().text() == "Open"):
+            self.setToolBoxWithPainter(-1)
+            print("Open file")
+
+    def setToolBox(self,mode):
+        self.toolbox = Toolbox('lightgray',mode,self.painter);
         self.layout.addWidget(self.toolbox,0,6,1,1)
-        
+
+    def setToolBoxWithPainter(self,mode):
+        self.painter.setMode(mode)
+        self.toolbox = Toolbox('lightgray',mode,self.painter);
+        self.layout.addWidget(self.toolbox,0,6,1,1)
+
+    def clearScreen(self):
+        objects.clear()
+        selectedIndex[0] = -1
+        self.painter.update()
+
 if __name__=='__main__':
         app=QApplication(sys.argv)
         painter=MainWindow()
