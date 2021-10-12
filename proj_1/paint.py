@@ -7,8 +7,7 @@ from dataclasses import dataclass
 objects = []
 selectedIndex = []
 brushSize = 8
-editMode = False
-
+toolboxColor = QColor("gray")
 @dataclass
 class Point:
     x: float
@@ -63,16 +62,18 @@ class Toolbar(QToolBar):
             self.addWidget(button)
 
 class Toolbox(QWidget):
-    def __init__(self, color, mode, p):
+    def __init__(self, mode, p, isEditMode):
         super(Toolbox, self).__init__()
         self.setAutoFillBackground(True)
 
         palette = self.palette()
-        palette.setColor(QPalette.Window, QColor(color))
+        palette.setColor(QPalette.Window, toolboxColor)
         self.setPalette(palette)
         self.mode = mode
         self.inputs = []
         self.painter = p
+        self.editMode = isEditMode
+
         if (mode == 0):
             self.lineInput()
         elif (mode == 1):
@@ -85,13 +86,22 @@ class Toolbox(QWidget):
         self.label = QLabel(self)
         self.label.setText("Line")
         self.layout.addRow(self.label)
-
-        self.createPoint("Point A:")
-        self.createPoint("Point B:")
+        
+        if (self.editMode):
+            obj = objects[selectedIndex[0]]
+            self.createPoint("Point A:", obj.A.x(), obj.A.y())
+            self.createPoint("Point B:", obj.B.x(), obj.B.y())
+        else:
+            self.createPoint("Point A:", 0,0)
+            self.createPoint("Point B:", 0,0)
 
         submitBtn = QPushButton("Submit")
         submitBtn.clicked.connect(self.onSubmitBtnClicked)
         self.layout.addRow(submitBtn)
+        if (self.editMode):
+            cancelBtn = QPushButton("Cancel")
+            cancelBtn.clicked.connect(self.onCancelBtnClicked)
+            self.layout.addRow(cancelBtn)
 
     def rectangleInput(self):
         self.layout = QFormLayout(self)
@@ -99,12 +109,21 @@ class Toolbox(QWidget):
         self.label.setText("Rectangle")
         self.layout.addRow(self.label)
 
-        self.createPoint("Point A:")
-        self.createPoint("Point B:")
+        if (self.editMode):
+            obj = objects[selectedIndex[0]]
+            self.createPoint("Point A:", obj.A.x(), obj.A.y())
+            self.createPoint("Point B:", obj.B.x(), obj.B.y())
+        else:
+            self.createPoint("Point A:", 0,0)
+            self.createPoint("Point B:", 0,0)
 
         submitBtn = QPushButton("Submit")
         submitBtn.clicked.connect(self.onSubmitBtnClicked)
         self.layout.addRow(submitBtn)
+        if (self.editMode):
+            cancelBtn = QPushButton("Cancel")
+            cancelBtn.clicked.connect(self.onCancelBtnClicked)
+            self.layout.addRow(cancelBtn)
 
     def circleInput(self):
         self.layout = QFormLayout(self)
@@ -112,28 +131,51 @@ class Toolbox(QWidget):
         self.label.setText("Circle")
         self.layout.addRow(self.label)
 
-        self.createPoint("Center:")
-        self.createPositionInput("Radius:")
+        if (self.editMode):
+            obj = objects[selectedIndex[0]]
+            self.createPoint("Center:", obj.A.x(), obj.A.y())
+            self.createPositionInput("Radius:", obj.radius)            
+        else:
+            self.createPoint("Center:", 0,0)
+            self.createPositionInput("Radius:", 0)    
+
         submitBtn = QPushButton("Submit")
         submitBtn.clicked.connect(self.onSubmitBtnClicked)
         self.layout.addRow(submitBtn)
+        if (self.editMode):
+            cancelBtn = QPushButton("Cancel")
+            cancelBtn.clicked.connect(self.onCancelBtnClicked)
+            self.layout.addRow(cancelBtn)
 
-    def createPoint(self, name):
+
+    def createPoint(self, name, posX, posY):
         pointLabel = QLabel(self)
         pointLabel.setText(name)
         self.layout.addRow(pointLabel)
-        self.createPositionInput("X:")
-        self.createPositionInput("Y:")
+        self.createPositionInput("X:", posX)
+        self.createPositionInput("Y:", posY)
 
-    def createPositionInput(self, name):
+    def createPositionInput(self, name, default):
         coordLabel = QLabel(self)
         coordLabel.setText(name)
         inputSpinBox = QDoubleSpinBox(self)
         inputSpinBox.setMinimum(0.0);
         inputSpinBox.setMaximum(1280.0);
         inputSpinBox.setSingleStep(0.5)
+        inputSpinBox.setValue(default)
         self.inputs.append(inputSpinBox)
         self.layout.addRow(coordLabel,inputSpinBox)
+
+    def clearToolbox(self):
+        for i in reversed(range(self.layout.count())): 
+            self.layout.itemAt(i).widget().setParent(None)
+        self.editMode = False
+        objects[selectedIndex[0]].isSelected = False
+        selectedIndex[0] = -1
+        self.painter.update()
+
+    def onCancelBtnClicked(self, s):
+        self.clearToolbox()
 
     def onSubmitBtnClicked(self, s):
         if (self.mode == 0):
@@ -147,7 +189,13 @@ class Toolbox(QWidget):
         elif (self.mode == 2):
             A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
             shape = Circle(A,float(self.inputs[2].text().replace(",",".")))
-        self.updateDraw(shape)
+        if (self.editMode) :
+            objects[selectedIndex[0]] = shape
+            selectedIndex[0] = -1
+            self.painter.update()
+            self.clearToolbox()
+        else:
+            self.updateDraw(shape)
 
     def updateDraw(self,shape):
         objects.append(shape)
@@ -166,10 +214,10 @@ class Painter(QWidget):
         self.image = QImage(self.size(), QImage.Format_RGB32)
         selectedIndex.append(-1)
         self.editFunc = editFunc
+        self.editMode = False
         
     def paintEvent(self, event):
         painter = QPainter(self)
-        
         for obj in objects:
             if obj.isSelected: painter.setPen(QPen(obj.color,  brushSize, Qt.DashLine))
             else: painter.setPen(QPen(obj.color,  brushSize, Qt.SolidLine))
@@ -194,7 +242,7 @@ class Painter(QWidget):
         if self.isDrawing :
             self.lineEnd = e.pos()
             self.update()
-        elif (self.mode == 3) & (selectedIndex[0] >= 0) :
+        elif (self.mode == 3) & (selectedIndex[0] >= 0) & (not self.editMode):
             if (isinstance(objects[selectedIndex[0]],Line)):
                 self.moveLine(e.pos())
             elif (isinstance(objects[selectedIndex[0]],Circle)):
@@ -203,7 +251,7 @@ class Painter(QWidget):
                 self.moveLine(e.pos())
             self.lastPos = e.pos()
             self.update()
-        elif (self.mode == 4) & (selectedIndex[0] >= 0) :
+        elif (self.mode == 4) & (selectedIndex[0] >= 0) & (not self.editMode):
             if (isinstance(objects[selectedIndex[0]],Line)):
                 self.resizeLine(e.pos())
             elif (isinstance(objects[selectedIndex[0]],Circle)):
@@ -214,11 +262,12 @@ class Painter(QWidget):
             self.update()
 
     def mousePressEvent(self, e):
-        print(e.pos())
-        if self.mode == 3:
+        if (selectedIndex[0] < 0) :
+            self.editMode = False
+        if (self.mode == 3) & (not self.editMode):
             self.findObject(e.pos())
             self.lastPos = e.pos()
-        elif (self.mode == 4) & (e.button() == Qt.LeftButton):
+        elif (self.mode == 4) & (e.button() == Qt.LeftButton) & (not self.editMode):
             self.findObject(e.pos())
         elif e.button() == Qt.LeftButton:
             self.isDrawing = True;
@@ -244,16 +293,19 @@ class Painter(QWidget):
                 objects.append(circle)
             self.isDrawing = False;
 
-        elif ((self.mode == 3) | (self.mode == 4)) & (selectedIndex[0] >= 0):
+        elif ((self.mode == 3) | (self.mode == 4)) & (selectedIndex[0] >= 0) & (not self.editMode):
             objects[selectedIndex[0]].isSelected = False
             selectedIndex[0] = -1
         self.resetPoints()
         self.update()
     
     def mouseDoubleClickEvent(self, e):
-        if (self.mode == 4):
+        if (selectedIndex[0] < 0) :
+            self.editMode = False
+        if (self.mode == 4) & (not self.editMode):
             self.findObject(e.pos())
-            self.editFunc()
+            self.editMode = True
+            self.editFunc(self.editMode)
 
     def resizeLine(self,pos):
         objects[selectedIndex[0]].B = pos
@@ -280,6 +332,10 @@ class Painter(QWidget):
         self.resetPoints()
         print("Draw mode changed from " + str(self.mode) + " to " + str(mode))
         self.mode = mode
+        if self.editMode:
+            self.editMode = False
+            if (selectedIndex[0] > 0) : objects[selectedIndex[0]].isSelected = False
+            selectedIndex[0] = -1
 
     def findObject(self,pos):
         for i in range(len(objects)):
@@ -360,7 +416,7 @@ class MainWindow(QMainWindow):
         self.layout = QGridLayout()
         self.painter = Painter('white', self.editShape)
         self.layout.addWidget(self.painter,0,0,1,5)
-        self.toolbox = Toolbox('lightgray',3,self.painter);
+        self.toolbox = Toolbox(3,self.painter, False);
         self.layout.addWidget(self.toolbox,0,6,1,1)
 
         self.addToolBar(Toolbar(self.onMyToolBarButtonClick))
@@ -372,16 +428,15 @@ class MainWindow(QMainWindow):
         self.label = QLabel("Click in this window")
         self.label.move(320, 20)
 
-    def editShape(self):
+    def editShape(self, isEditMode):
         obj = objects[selectedIndex[0]]
         self.layout.removeWidget(self.toolbox)
-        editMode = True
         if (isinstance(obj,Line)):
-            self.setToolBox(0)
+            self.setToolBox(0,isEditMode)
         elif (isinstance(obj,Rectangle)):
-            self.setToolBox(1)
+            self.setToolBox(1,isEditMode)
         elif (isinstance(obj,Circle)):
-            self.setToolBox(2)
+            self.setToolBox(2,isEditMode)
 
     def onMyToolBarButtonClick(self, s):
         self.layout.removeWidget(self.toolbox)
@@ -407,13 +462,13 @@ class MainWindow(QMainWindow):
             self.setToolBoxWithPainter(-1)
             print("Open file")
 
-    def setToolBox(self,mode):
-        self.toolbox = Toolbox('lightgray',mode,self.painter);
+    def setToolBox(self,mode,isEditMode):
+        self.toolbox = Toolbox(mode,self.painter,isEditMode);
         self.layout.addWidget(self.toolbox,0,6,1,1)
 
     def setToolBoxWithPainter(self,mode):
         self.painter.setMode(mode)
-        self.toolbox = Toolbox('lightgray',mode,self.painter);
+        self.toolbox = Toolbox(mode,self.painter,False);
         self.layout.addWidget(self.toolbox,0,6,1,1)
 
     def clearScreen(self):
