@@ -10,32 +10,32 @@ objects = []
 selectedIndex = []
 brushSize = 8
 toolboxColor = QColor("gray")
-@dataclass
+
 class Point:
-    x: float
-    y: float
-
-@dataclass
+    def __init__(self, x = 0, y = 0):
+        self.x = x
+        self.y = y
 class Shape:
-    A: QPoint
-
-@dataclass
+    def __init__(self, A):
+        self.A = A
 class Line(Shape):
-    B: QPoint
-    isSelected: bool = False
-    color: QColor = Qt.red
-
-@dataclass
+    def __init__(self, A, B, isSelected = False, color = Qt.red):
+        super().__init__(A)
+        self.B = B
+        self.isSelected = isSelected
+        self.color = color
 class Rectangle(Shape):
-    B: QPoint
-    isSelected: bool = False
-    color: QColor = Qt.green
-
-@dataclass
+    def __init__(self, A, B, isSelected = False, color = Qt.green):
+        super().__init__(A)
+        self.B = B
+        self.isSelected = isSelected
+        self.color = color
 class Circle(Shape):
-    radius: float
-    isSelected: bool = False
-    color: QColor = Qt.blue
+    def __init__(self, A, radius, isSelected = False, color = Qt.blue):
+        super().__init__(A)
+        self.radius = radius
+        self.isSelected = isSelected
+        self.color = color
 
 class Toolbar(QToolBar):
     def __init__(self, btnClick):
@@ -91,8 +91,8 @@ class Toolbox(QWidget):
         
         if (self.editMode):
             obj = objects[selectedIndex[0]]
-            self.createPoint("Point A:", obj.A.x(), obj.A.y())
-            self.createPoint("Point B:", obj.B.x(), obj.B.y())
+            self.createPoint("Point A:", obj.A.x, obj.A.y)
+            self.createPoint("Point B:", obj.B.x, obj.B.y)
         else:
             self.createPoint("Point A:", 0,0)
             self.createPoint("Point B:", 0,0)
@@ -113,8 +113,8 @@ class Toolbox(QWidget):
 
         if (self.editMode):
             obj = objects[selectedIndex[0]]
-            self.createPoint("Point A:", obj.A.x(), obj.A.y())
-            self.createPoint("Point B:", obj.B.x(), obj.B.y())
+            self.createPoint("Point A:", obj.A.x, obj.A.y)
+            self.createPoint("Point B:", obj.B.x, obj.B.y)
         else:
             self.createPoint("Point A:", 0,0)
             self.createPoint("Point B:", 0,0)
@@ -135,7 +135,7 @@ class Toolbox(QWidget):
 
         if (self.editMode):
             obj = objects[selectedIndex[0]]
-            self.createPoint("Center:", obj.A.x(), obj.A.y())
+            self.createPoint("Center:", obj.A.x, obj.A.y)
             self.createPositionInput("Radius:", obj.radius)            
         else:
             self.createPoint("Center:", 0,0)
@@ -182,8 +182,8 @@ class Toolbox(QWidget):
     def onSubmitBtnClicked(self, s):
 
         if (self.mode == 0):
-            A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
-            B = QPoint(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
+            A = Point(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
+            B = Point(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
             if (A == B):
                 button = QMessageBox.critical(
                         self,
@@ -195,8 +195,8 @@ class Toolbox(QWidget):
                 return
             shape = Line(A,B)
         elif (self.mode == 1):
-            A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
-            B = QPoint(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
+            A = Point(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
+            B = Point(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
             if (A == B):
                 button = QMessageBox.critical(
                     self,
@@ -208,7 +208,7 @@ class Toolbox(QWidget):
                 return
             shape = Rectangle(A,B)
         elif (self.mode == 2):
-            A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
+            A = Point(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
             radius = float(self.inputs[2].text().replace(",","."))
             if (radius == 0):
                 button = QMessageBox.critical(
@@ -253,13 +253,13 @@ class Painter(QWidget):
             if obj.isSelected: painter.setPen(QPen(obj.color,  brushSize, Qt.DashLine))
             else: painter.setPen(QPen(obj.color,  brushSize, Qt.SolidLine))
             if (isinstance(obj,Line)):
-                painter.drawLine(obj.A, obj.B)
+                painter.drawLine(QPoint(obj.A.x,obj.A.y), QPoint(obj.B.x,obj.B.y))
             if (isinstance(obj,Rectangle)):
-                painter.drawRect(QRect(obj.A, obj.B))
+                painter.drawRect(QRect(QPoint(obj.A.x,obj.A.y), QPoint(obj.B.x,obj.B.y)))
             if (isinstance(obj,Circle)):
-                painter.drawEllipse(obj.A,obj.radius,obj.radius)
+                painter.drawEllipse(QPoint(obj.A.x,obj.A.y),obj.radius,obj.radius)
 
-        if not self.lineStart.isNull() and not self.lineEnd.isNull():
+        if (not self.lineStart.isNull() and not self.lineEnd.isNull()) & self.isDrawing:
             painter.setPen(QPen(Qt.black,  brushSize, Qt.SolidLine))
             if (self.mode == 0):
                 painter.drawLine(self.lineStart, self.lineEnd)
@@ -308,17 +308,17 @@ class Painter(QWidget):
     def mouseReleaseEvent(self, e):
         if self.isDrawing:
             if (self.mode == 0):
-                A = self.lineStart
-                B = self.lineEnd
+                A = Point(self.lineStart.x(),self.lineStart.y())
+                B = Point(self.lineEnd.x(),self.lineEnd.y())
                 line = Line(A,B)
                 objects.append(line)
             elif (self.mode == 1):
-                A = self.lineStart
-                B = self.lineEnd
+                A = Point(self.lineStart.x(),self.lineStart.y())
+                B = Point(self.lineEnd.x(),self.lineEnd.y())
                 rectangle = Rectangle(A,B)
                 objects.append(rectangle)
             elif (self.mode == 2):
-                A = self.lineStart
+                A = Point(self.lineStart.x(),self.lineStart.y())
                 radius = math.sqrt(abs(self.lineStart.x() - self.lineEnd.x())**2 + abs(self.lineStart.y() - self.lineEnd.y())**2)
                 circle = Circle(A,radius)
                 objects.append(circle)
@@ -334,24 +334,25 @@ class Painter(QWidget):
         if (selectedIndex[0] < 0) :
             self.editMode = False
         if (self.mode == 4) & (not self.editMode):
-            self.findObject(e.pos())
-            self.editMode = True
-            self.editFunc(self.editMode)
+            res = self.findObject(e.pos())
+            if res:
+                self.editMode = True
+                self.editFunc(self.editMode)
 
     def resizeLine(self,pos):
-        objects[selectedIndex[0]].B = pos
+        objects[selectedIndex[0]].B = Point(pos.x(),pos.y())
 
     def resizeCircle(self, pos):
         obj = objects[selectedIndex[0]]
-        objects[selectedIndex[0]].radius = math.sqrt(abs(obj.A.x() - pos.x())**2 + abs(obj.A.y() - pos.y())**2)
+        objects[selectedIndex[0]].radius = math.sqrt(abs(obj.A.x - pos.x())**2 + abs(obj.A.y - pos.y())**2)
 
     def moveCircle(self,pos):
-        A = QPoint(objects[selectedIndex[0]].A.x() + (pos.x() - self.lastPos.x()),objects[selectedIndex[0]].A.y() + (pos.y() - self.lastPos.y()))
+        A = Point(objects[selectedIndex[0]].A.x + (pos.x() - self.lastPos.x()),objects[selectedIndex[0]].A.y + (pos.y() - self.lastPos.y()))
         objects[selectedIndex[0]].A = A
 
     def moveLine(self,pos):
-        A = QPoint(objects[selectedIndex[0]].A.x() + (pos.x() - self.lastPos.x()),objects[selectedIndex[0]].A.y() + (pos.y() - self.lastPos.y()))
-        B = QPoint(objects[selectedIndex[0]].B.x() + (pos.x() - self.lastPos.x()),objects[selectedIndex[0]].B.y() + (pos.y() - self.lastPos.y()))
+        A = Point(objects[selectedIndex[0]].A.x + (pos.x() - self.lastPos.x()),objects[selectedIndex[0]].A.y + (pos.y() - self.lastPos.y()))
+        B = Point(objects[selectedIndex[0]].B.x + (pos.x() - self.lastPos.x()),objects[selectedIndex[0]].B.y + (pos.y() - self.lastPos.y()))
         objects[selectedIndex[0]].A = A
         objects[selectedIndex[0]].B = B
 
@@ -376,27 +377,28 @@ class Painter(QWidget):
                     obj.isSelected = True
                     selectedIndex[0] = i
                     self.update()
-                    break
+                    return True
             if (isinstance(obj,Rectangle)):
                 if (self.checkIsOnRectangle(obj,pos)):
                     obj.isSelected = True
                     selectedIndex[0] = i
                     self.update()
-                    break
+                    return True
             if (isinstance(obj,Circle)):
                 if (self.checkIsOnCircle(obj,pos)):
                     obj.isSelected = True
                     selectedIndex[0] = i
                     self.update()
-                    break
+                    return True
+        return False
     
     def checkIsOnRectangle(self,obj,pos):
-        width = obj.A.x() - obj.B.x()
-        height = obj.A.y() - obj.B.y() 
+        width = obj.A.x - obj.B.x
+        height = obj.A.y - obj.B.y 
         A = obj.A
-        B = QPoint(obj.A.x() + width, obj.A.y())
+        B = Point(obj.A.x + width, obj.A.y)
         C = obj.B
-        D = QPoint(obj.A.x(), obj.A.y() + height)
+        D = Point(obj.A.x, obj.A.y + height)
         a = Line(A,B)
         b = Line(B,C)
         c = Line(C,D)
@@ -408,25 +410,25 @@ class Painter(QWidget):
         return res1 | res2 | res3 | res4
     
     def checkIsOnCircle(self,obj,pos):
-        radius =  math.sqrt(abs(obj.A.x() - pos.x())**2 + abs(obj.A.y() - pos.y())**2)
+        radius =  math.sqrt(abs(obj.A.x - pos.x())**2 + abs(obj.A.y - pos.y())**2)
         return abs(round(radius) - round(obj.radius)) < 8
 
     def checkIsOnLine(self, obj, pos):
-        if ((pos.x() > obj.A.x()) & (pos.x() > obj.B.x())) or ((pos.x() < obj.A.x()) & (pos.x() < obj.B.x())) : return False;
-        if ((pos.y() > obj.A.y()) & (pos.y() > obj.B.y())) or ((pos.y() < obj.A.y()) & (pos.y() < obj.B.y())) : return False;
-        ABx = abs(obj.A.x() - obj.B.x())
-        ABy = abs(obj.A.y() - obj.B.y())
-        ACx = abs(obj.A.x() - pos.x())
-        ACy = abs(obj.A.y() - pos.y())
-        BCx = abs(obj.B.x() - pos.x())
-        BCy = abs(obj.B.y() - pos.y())
+        if ((pos.x() > obj.A.x) & (pos.x() > obj.B.x)) or ((pos.x() < obj.A.x) & (pos.x() < obj.B.x)) : return False;
+        if ((pos.y() > obj.A.y) & (pos.y() > obj.B.y)) or ((pos.y() < obj.A.y) & (pos.y() < obj.B.y)) : return False;
+        ABx = abs(obj.A.x - obj.B.x)
+        ABy = abs(obj.A.y - obj.B.y)
+        ACx = abs(obj.A.x - pos.x())
+        ACy = abs(obj.A.y - pos.y())
+        BCx = abs(obj.B.x - pos.x())
+        BCy = abs(obj.B.y - pos.y())
         if (ABx == 0) & (ACx == 0) & (BCx == 0): return True
         if (ABy == 0) & (ACy == 0) & (BCy == 0): return True
-        if (ABy != 0) :ab = round(abs(obj.A.x() - obj.B.x()) / abs(obj.A.y() - obj.B.y()))
+        if (ABy != 0) :ab = round(abs(obj.A.x - obj.B.x) / abs(obj.A.y - obj.B.y))
         else : ab = 0
-        if (ACy != 0) :ac = round(abs(obj.A.x() - pos.x()) / abs(obj.A.y() - pos.y()))
+        if (ACy != 0) :ac = round(abs(obj.A.x - pos.x()) / abs(obj.A.y - pos.y()))
         else : ac = 0
-        if (BCy != 0) :bc = round(abs(pos.x() - obj.B.x()) / abs(pos.y() - obj.B.y()))
+        if (BCy != 0) :bc = round(abs(pos.x() - obj.B.x) / abs(pos.y() - obj.B.y))
         else : bc = 0
         print(str(ab) + " " + str(ac) + " "+ str(bc))
         return (abs(ab - ac) < 8) & (abs(ab - bc) < 8) & (abs(ac - bc) < 8)
@@ -512,6 +514,10 @@ class MainWindow(QMainWindow):
  
         if filePath == "":
             return        
+
+        jsonString = ""
+        for obj in objects:
+            print(json.dumps(obj.__dict__))
 
     def openFile(self):
         filePath, _ = QFileDialog.getOpenFileName(self, 'Open File', "",
