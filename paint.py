@@ -18,16 +18,19 @@ class Shape:
 @dataclass
 class Line(Shape):
     B: QPoint
+    isSelected: bool = False
     color: QColor = Qt.red
 
 @dataclass
 class Rectangle(Shape):
     B: QPoint
+    isSelected: bool = False
     color: QColor = Qt.green
 
 @dataclass
 class Circle(Shape):
     radius: float
+    isSelected: bool = False
     color: QColor = Qt.blue
 
 class Toolbar(QToolBar):
@@ -165,13 +168,14 @@ class Painter(QWidget):
         self.image = QImage(self.size(), QImage.Format_RGB32)
         
         self.points = QPolygon()
-
+        self.selectedIndex = -1
 
     def paintEvent(self, event):
         painter = QPainter(self)
         
         for obj in objects:
-            painter.setPen(QPen(obj.color,  8, Qt.SolidLine))
+            if obj.isSelected: painter.setPen(QPen(obj.color,  8, Qt.DashLine))
+            else: painter.setPen(QPen(obj.color,  8, Qt.SolidLine))
             if (isinstance(obj,Line)):
                 painter.drawLine(obj.A, obj.B)
             if (isinstance(obj,Rectangle)):
@@ -194,19 +198,27 @@ class Painter(QWidget):
             self.lineEnd = e.pos()
             self.points << e.pos()
             self.update()
+        elif (self.mode == 3) & (self.selectedIndex >= 0) :
+            self.moveLine(e.pos())
+            self.lastPos = e.pos()
+            self.update()
 
-
+    def moveLine(self,pos):
+        A = QPoint(objects[self.selectedIndex].A.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].A.y() + (pos.y() - self.lastPos.y()))
+        B = QPoint(objects[self.selectedIndex].B.x() + (pos.x() - self.lastPos.x()),objects[self.selectedIndex].B.y() + (pos.y() - self.lastPos.y()))
+        objects[self.selectedIndex].A = A
+        objects[self.selectedIndex].B = B
+    
     def mousePressEvent(self, e):
         if self.mode == 3:
-            print("is moving!!!")
+            self.findObject(e.pos())
+            self.lastPos = e.pos()
         elif self.mode == 4:
             print("is resizing!!!")
         elif e.button() == Qt.LeftButton:
             self.isDrawing = True;
-            self.lastPos = e.pos()
             self.lineStart = e.pos()
             self.lineEnd = e.pos()
-            print("is drawing!!!")
 
     def mouseReleaseEvent(self, e):
         if self.isDrawing:
@@ -225,18 +237,54 @@ class Painter(QWidget):
                 radius = math.sqrt(abs(self.lineStart.x() - self.lineEnd.x())**2 + abs(self.lineStart.y() - self.lineEnd.y())**2)
                 circle = Circle(A,radius)
                 objects.append(circle)
+            self.isDrawing = False;
 
-        self.isDrawing = False;
-        self.lineStart = QPoint()
-        self.lineEnd = QPoint()
+        elif (self.mode == 3) & (self.selectedIndex >= 0):
+            objects[self.selectedIndex].isSelected = False
+            self.selectedIndex = -1
+        self.resetPoints()
         self.update()
 
-    def setMode(self,mode):
+    def resetPoints(self):
         self.lineStart = QPoint()
         self.lineEnd = QPoint()
+
+    def setMode(self,mode):
+        self.resetPoints()
         print("Draw mode changed from " + str(self.mode) + " to " + str(mode))
         self.mode = mode
 
+    def findObject(self,pos):
+        print(pos)
+        for i in range(len(objects)):
+            obj = objects[i]
+            if (isinstance(obj,Line)):
+                if (self.checkIsOnLine(obj,pos)):
+                    obj.isSelected = True
+                    self.selectedIndex = i
+                    self.update()
+                    break
+            if (isinstance(obj,Rectangle)):
+                a = 0
+            if (isinstance(obj,Circle)):
+                a = 0
+
+    def checkIsOnLine(self, obj, pos):
+        print(str(obj.A) + " " + str(obj.B) + " "+ str(pos))
+        ABx = abs(obj.A.x() - obj.B.x())
+        ABy = abs(obj.A.y() - obj.B.y())
+        ACx = abs(obj.A.x() - pos.x())
+        ACy = abs(obj.A.y() - pos.y())
+        BCx = abs(obj.B.x() - pos.x())
+        BCy = abs(obj.B.y() - pos.y())
+        if (ABx == 0) & (ACx == 0) & (BCx == 0): return True
+        if (ABy == 0) & (ACy == 0) & (BCy == 0): return True
+        if (ABy != 0) :ab = round(abs(obj.A.x() - obj.B.x()) / abs(obj.A.y() - obj.B.y()))
+        else : ab = 0
+        ac = round(abs(obj.A.x() - pos.x()) / abs(obj.A.y() - pos.y()))
+        bc = round(abs(pos.x() - obj.B.x()) / abs(pos.y() - obj.B.y()))
+        print(str(ab) + " " + str(ac) + " "+ str(bc))
+        return (ab == ac) & (ab == bc) & (ac == bc)
     # def mouseDoubleClickEvent(self, e):
     #     print("mouseDoubleClickEvent")
 
