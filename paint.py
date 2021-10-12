@@ -2,6 +2,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import *
 import sys
+import math
 from dataclasses import dataclass
 objects = []
 
@@ -17,14 +18,18 @@ class Shape:
 @dataclass
 class Line(Shape):
     B: QPoint
+    color: QColor = Qt.red
 
 @dataclass
 class Rectangle(Shape):
     B: QPoint
+    color: QColor = Qt.green
 
 @dataclass
 class Circle(Shape):
     radius: float
+    color: QColor = Qt.blue
+
 class Toolbar(QToolBar):
     def __init__(self, btnClick):
         super(Toolbar, self).__init__()
@@ -129,10 +134,6 @@ class Toolbox(QWidget):
         self.layout.addRow(coordLabel,inputSpinBox)
 
     def onSubmitBtnClicked(self, s):
-        # if (len(self.inputs) > 3):
-        #     print("A: X={0} Y={1} B: X={2} Y={3}".format(self.inputs[0].text(),self.inputs[1].text(),self.inputs[2].text(),self.inputs[3].text()))
-        # else :
-        #     print("Center: X={0} Y={1} radius={2}".format(self.inputs[0].text(),self.inputs[1].text(), self.inputs[2].text()))
         if (self.mode == 0):
             A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
             B = QPoint(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
@@ -170,29 +171,23 @@ class Painter(QWidget):
         painter = QPainter(self)
         
         for obj in objects:
+            painter.setPen(QPen(obj.color,  8, Qt.SolidLine))
             if (isinstance(obj,Line)):
-                painter.setPen(QPen(Qt.red,  8, Qt.SolidLine))
                 painter.drawLine(obj.A, obj.B)
             if (isinstance(obj,Rectangle)):
-                painter.setPen(QPen(Qt.green,  8, Qt.SolidLine))
                 painter.drawRect(QRect(obj.A, obj.B))
             if (isinstance(obj,Circle)):
-                painter.setPen(QPen(Qt.blue,  8, Qt.SolidLine))
-                onCircle = QPoint(obj.A.x() + obj.radius, obj.A.y() + obj.radius)
-                painter.drawEllipse(QRect(obj.A, onCircle))
+                painter.drawEllipse(obj.A,obj.radius,obj.radius)
 
         if not self.lineStart.isNull() and not self.lineEnd.isNull():
+            painter.setPen(QPen(Qt.black,  8, Qt.SolidLine))
             if (self.mode == 0):
-                painter.setPen(QPen(Qt.red,  8, Qt.SolidLine))
                 painter.drawLine(self.lineStart, self.lineEnd)
             elif (self.mode == 1):
-                painter.setPen(QPen(Qt.green,  8, Qt.SolidLine))
                 painter.drawRect(QRect(self.lineStart, self.lineEnd))
             elif (self.mode == 2):
-                painter.setPen(QPen(Qt.blue,  8, Qt.SolidLine))
-                radius = max(abs(self.lineStart.x() - self.lineEnd.x()),abs(self.lineStart.y() - self.lineEnd.y()))
-                onCircle = QPoint(self.lineStart.x() + radius, self.lineStart.y() + radius)
-                painter.drawEllipse(QRect(self.lineStart, onCircle))
+                radius = math.sqrt(abs(self.lineStart.x() - self.lineEnd.x())**2 + abs(self.lineStart.y() - self.lineEnd.y())**2)
+                painter.drawEllipse(self.lineStart,radius,radius)
 
     def mouseMoveEvent(self, e):
         if self.isDrawing :
@@ -202,11 +197,16 @@ class Painter(QWidget):
 
 
     def mousePressEvent(self, e):
-        if e.button() == Qt.LeftButton:
+        if self.mode == 3:
+            print("is moving!!!")
+        elif self.mode == 4:
+            print("is resizing!!!")
+        elif e.button() == Qt.LeftButton:
             self.isDrawing = True;
             self.lastPos = e.pos()
             self.lineStart = e.pos()
             self.lineEnd = e.pos()
+            print("is drawing!!!")
 
     def mouseReleaseEvent(self, e):
         if self.isDrawing:
@@ -222,12 +222,14 @@ class Painter(QWidget):
                 objects.append(rectangle)
             elif (self.mode == 2):
                 A = self.lineStart
-                radius = max(abs(self.lineStart.x() - self.lineEnd.x()),abs(self.lineStart.y() - self.lineEnd.y()))
+                radius = math.sqrt(abs(self.lineStart.x() - self.lineEnd.x())**2 + abs(self.lineStart.y() - self.lineEnd.y())**2)
                 circle = Circle(A,radius)
                 objects.append(circle)
 
         self.isDrawing = False;
-        self.lineEnd = e.pos()
+        self.lineStart = QPoint()
+        self.lineEnd = QPoint()
+        self.update()
 
     def setMode(self,mode):
         self.lineStart = QPoint()
@@ -276,6 +278,12 @@ class MainWindow(QMainWindow):
             self.toolbox = Toolbox('lightgray',1,self.painter);
         elif (self.sender().text() == "Circle"):
             self.painter.setMode(2)
+            self.toolbox = Toolbox('lightgray',2,self.painter);
+        elif (self.sender().text() == "Move"):
+            self.painter.setMode(3)
+            self.toolbox = Toolbox('lightgray',2,self.painter);
+        elif (self.sender().text() == "Edit"):
+            self.painter.setMode(4)
             self.toolbox = Toolbox('lightgray',2,self.painter);
         self.layout.addWidget(self.toolbox,0,6,1,1)
 
