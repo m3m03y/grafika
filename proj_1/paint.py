@@ -4,6 +4,8 @@ from PySide6.QtCore import *
 import sys
 import math
 from dataclasses import dataclass
+import json
+
 objects = []
 selectedIndex = []
 brushSize = 8
@@ -178,17 +180,46 @@ class Toolbox(QWidget):
         self.clearToolbox()
 
     def onSubmitBtnClicked(self, s):
+
         if (self.mode == 0):
             A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
             B = QPoint(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
+            if (A == B):
+                button = QMessageBox.critical(
+                        self,
+                        "Invalid input!",
+                        "Points must not be on the same place",
+                        buttons=QMessageBox.Ignore,
+                        defaultButton=QMessageBox.Ignore,
+                    )
+                return
             shape = Line(A,B)
         elif (self.mode == 1):
             A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
             B = QPoint(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
+            if (A == B):
+                button = QMessageBox.critical(
+                    self,
+                    "Invalid input!",
+                    "Points must not be on the same place",
+                    buttons=QMessageBox.Ignore,
+                    defaultButton=QMessageBox.Ignore,
+                )
+                return
             shape = Rectangle(A,B)
         elif (self.mode == 2):
             A = QPoint(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
-            shape = Circle(A,float(self.inputs[2].text().replace(",",".")))
+            radius = float(self.inputs[2].text().replace(",","."))
+            if (radius == 0):
+                button = QMessageBox.critical(
+                    self,
+                    "Invalid input!",
+                    "Radius cannot equals 0",
+                    buttons=QMessageBox.Ignore,
+                    defaultButton=QMessageBox.Ignore,
+                )
+                return
+            shape = Circle(A,radius)
         if (self.editMode) :
             objects[selectedIndex[0]] = shape
             selectedIndex[0] = -1
@@ -399,7 +430,6 @@ class Painter(QWidget):
         else : bc = 0
         print(str(ab) + " " + str(ac) + " "+ str(bc))
         return (abs(ab - ac) < 8) & (abs(ab - bc) < 8) & (abs(ac - bc) < 8)
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -457,7 +487,7 @@ class MainWindow(QMainWindow):
             self.clearScreen()
         elif (self.sender().text() == "Save"):
             self.setToolBoxWithPainter(-1)
-            print("Save file")
+            self.saveFile()
         elif (self.sender().text() == "Open"):
             self.setToolBoxWithPainter(-1)
             print("Open file")
@@ -476,6 +506,13 @@ class MainWindow(QMainWindow):
         selectedIndex[0] = -1
         self.painter.update()
 
+    def saveFile(self):
+        filePath, _ = QFileDialog.getSaveFileName(self, "Save Image", "",
+            "JSON(*.json) ")
+ 
+        if filePath == "":
+            return            
+        
 if __name__=='__main__':
         app=QApplication(sys.argv)
         painter=MainWindow()
