@@ -249,7 +249,7 @@ class Toolbox(QWidget):
         if (self.mode == 0):
             A = Point(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
             B = Point(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
-            if (A == B):
+            if (A.x == B.x) & (A.y == B.y):
                 button = QMessageBox.critical(
                         self,
                         "Invalid input!",
@@ -262,7 +262,7 @@ class Toolbox(QWidget):
         elif (self.mode == 1):
             A = Point(float(self.inputs[0].text().replace(",",".")),float(self.inputs[1].text().replace(",",".")))
             B = Point(float(self.inputs[2].text().replace(",",".")),float(self.inputs[3].text().replace(",",".")))
-            if (A == B):
+            if (A.x == B.x) & (A.y == B.y):
                 button = QMessageBox.critical(
                     self,
                     "Invalid input!",
