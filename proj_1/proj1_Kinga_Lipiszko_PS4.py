@@ -104,7 +104,11 @@ class Circle(Shape):
 class Toolbar(QToolBar):
     def __init__(self, btnClick):
         super(Toolbar, self).__init__()
+        self.setAutoFillBackground(True)
 
+        palette = self.palette()
+        palette.setColor(QPalette.Window, Qt.black)
+        self.setPalette(palette)
         self.buttons = {
             "Line" : "Create line",
             "Rectangle" : "Create rectangle",
@@ -575,6 +579,12 @@ class Painter(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setAutoFillBackground(True)
+
+        palette = self.palette()
+        palette.setColor(QPalette.Window, Qt.white)
+        self.setPalette(palette)
+
         self.title='Kinga Lipiszko PS4'
         self.left=10
         self.top=10
