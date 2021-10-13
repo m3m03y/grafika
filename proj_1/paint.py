@@ -500,9 +500,9 @@ class Painter(QWidget):
             if (self.checkIsOnPoint(obj.A,pos)):
                 isAPoint[0] = True
                 return True
-            elif self.checkIsOnPoint(obj.B,pos):
+            elif self.checkIsOnPoint(obj.B,pos) | self.checkIsOnPoint(Point(obj.A.x,obj.B.y),pos) | self.checkIsOnPoint(Point(obj.B.x,obj.A.y),pos):
                 isAPoint[0] = False
-                return True        
+                return True       
         elif (isinstance(obj,Circle)):
             return True
         return False
