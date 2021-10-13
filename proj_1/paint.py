@@ -9,8 +9,8 @@ from array import array
 
 objects = []
 selectedIndex = []
-isAPoint = [False]
-brushSize = 8
+editedPoint = [-1]
+brushSize = 10
 toolboxColor = QColor("gray")
 
 class Point:
@@ -122,7 +122,7 @@ class Toolbar(QToolBar):
             button = QToolButton()
             button.setText(btn)
             button.setStatusTip(self.buttons[btn])
-            if (btn != "Save") & (btn != "Open"):
+            if (btn != "Save") & (btn != "Open") & (btn != "Clear"):
                 button.setCheckable(True)
             button.setAutoExclusive(True)
             button.clicked.connect(btnClick)
@@ -425,7 +425,7 @@ class Painter(QWidget):
             selectedIndex[0] = -1
         self.resetPoints()
         self.update()
-        isAPoint[0] = False
+        editedPoint[0] = -1
     
     def mouseDoubleClickEvent(self, e):
         if (selectedIndex[0] < 0) & (e.button() == Qt.LeftButton):
@@ -437,9 +437,16 @@ class Painter(QWidget):
                 self.editFunc(self.editMode)
 
     def resizeLine(self,pos):
-        if isAPoint[0]: 
+        if editedPoint[0] == 0: 
             objects[selectedIndex[0]].A = Point(pos.x(),pos.y())
-        else : objects[selectedIndex[0]].B = Point(pos.x(),pos.y())
+        elif editedPoint[0] == 1 : 
+            objects[selectedIndex[0]].B = Point(pos.x(),pos.y())
+        elif editedPoint[0] == 2 : 
+            objects[selectedIndex[0]].A.x = pos.x()
+            objects[selectedIndex[0]].B.y = pos.y()
+        elif editedPoint[0] == 3 : 
+            objects[selectedIndex[0]].A.y = pos.y()
+            objects[selectedIndex[0]].B.x = pos.x()
 
     def resizeCircle(self, pos):
         obj = objects[selectedIndex[0]]
@@ -492,17 +499,23 @@ class Painter(QWidget):
     def checkIsOnDistinctivePoint(self,obj,pos):
         if (isinstance(obj,Line)):
             if (self.checkIsNearA(obj,pos)):
-                isAPoint[0] = True
+                editedPoint[0] = 0
             else:
-                isAPoint[0] = False
+                editedPoint[0] = 1
             return True
         elif (isinstance(obj,Rectangle)):
             if (self.checkIsOnPoint(obj.A,pos)):
-                isAPoint[0] = True
+                editedPoint[0] = 0
                 return True
-            elif self.checkIsOnPoint(obj.B,pos) | self.checkIsOnPoint(Point(obj.A.x,obj.B.y),pos) | self.checkIsOnPoint(Point(obj.B.x,obj.A.y),pos):
-                isAPoint[0] = False
-                return True       
+            elif self.checkIsOnPoint(obj.B,pos):  
+                editedPoint[0] = 1
+                return True    
+            elif self.checkIsOnPoint(Point(obj.A.x,obj.B.y),pos):
+                editedPoint[0] = 2
+                return True   
+            elif self.checkIsOnPoint(Point(obj.B.x,obj.A.y),pos):
+                editedPoint[0] = 3
+                return True
         elif (isinstance(obj,Circle)):
             return True
         return False
