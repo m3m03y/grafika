@@ -19,11 +19,33 @@ class Point:
 
     def __str__(self):
          return "X:" + str(self.x) + " Y:" + str(self.y)
+
+    def to_object(d):
+        return Point(d['x'], d['y'])
+    
+    def to_dict(o):
+        if isinstance(o, Point):
+            dict = {
+                "x": o.x,
+                "y": o.y,
+                "__class__": 'Point'
+            }
+            return dict
 class Shape:
     def __init__(self, A):
         self.A = A
     def __str__(self):
         return str(self.A)
+    def to_object(d):
+        return Shape(d['A'])
+            
+    def to_dict(o):
+        if isinstance(o, Shape):
+            dict = {
+                "A": Point.to_dict(o.A),
+                "__class__": 'Shape'
+            }
+            return dict 
 class Line(Shape):
     def __init__(self, A, B, isSelected = False, color = Qt.red):
         super().__init__(A)
@@ -32,6 +54,16 @@ class Line(Shape):
         self.color = color
     def __str__(self):
         return "A:" + str(self.A) + " B:" + str(self.B)
+    def to_object(d):
+        return Line(d['A'], d['B'])
+    def to_dict(o):
+        if isinstance(o, Line):
+            dict = {
+                "A": Point.to_dict(o.A),
+                "B": Point.to_dict(o.B),
+                "__class__": 'Line'
+            }
+            return dict 
 class Rectangle(Shape):
     def __init__(self, A, B, isSelected = False, color = Qt.green):
         super().__init__(A)
@@ -40,6 +72,16 @@ class Rectangle(Shape):
         self.color = color
     def __str__(self):
         return "A:" + str(self.A) + " B:" + str(self.B)
+    def to_object(d):
+        return Rectangle(d['A'], d['B'])
+    def to_dict(o):
+        if isinstance(o, Rectangle):
+            dict = {
+                "A": Point.to_dict(o.A),
+                "B": Point.to_dict(o.B),
+                "__class__": 'Rectangle'
+            }
+            return dict 
 class Circle(Shape):
     def __init__(self, A, radius, isSelected = False, color = Qt.blue):
         super().__init__(A)
@@ -48,6 +90,16 @@ class Circle(Shape):
         self.color = color
     def __str__(self):
         return "Center:" + str(self.A) + " radius:" + str(self.radius)
+    def to_object(d):
+        return Circle(d['A'], d['radius'])
+    def to_dict(o):
+        if isinstance(o, Circle):
+            dict = {
+                "A": Point.to_dict(o.A),
+                "radius": o.radius,
+                "__class__": 'Circle'
+            }
+            return dict 
 class Toolbar(QToolBar):
     def __init__(self, btnClick):
         super(Toolbar, self).__init__()
@@ -588,9 +640,12 @@ class MainWindow(QMainWindow):
         if filePath == "":
             return        
 
-        jsonString = ""
-        for obj in objects:
-            print(json.dumps(obj.__dict__))
+        jsonString = json.dumps(objects, cls=ShapesEncoder)
+        if not filePath.__contains__('.json'): filePath += '.json'
+        print(jsonString)
+        file = open(filePath, 'w')
+        file.write(jsonString)
+        file.close()
 
     def openFile(self):
         filePath, _ = QFileDialog.getOpenFileName(self, 'Open File', "",
@@ -599,6 +654,54 @@ class MainWindow(QMainWindow):
         if filePath == "":
             return         
         
+        file = open(filePath,'r')
+        objects.clear()
+        data = str(json.load(file))
+        print(data)
+        test = json.loads(data, object_hook = self.dict_to_object)
+        print(objects)
+
+    def dict_to_object(self,d):
+        if '__class__' in d:
+            class_name = d.pop('__class__')
+            if d['__class__'] == 'Point':
+                return (Point.to_object(d))
+            elif d['__class__'] == 'Line':
+                return (Line.to_object(d))
+            elif d['__class__'] == 'Circle':
+                return (Circle.to_object(d))
+            elif d['__class__'] == 'Rectangle':
+                return (Rectangle.to_object(d))
+            else: return json.loads(d)
+class ShapesEncoder(json.JSONEncoder):
+     
+    def default(self, obj):
+        if isinstance(obj, Line):
+            return Line.to_dict(obj)
+        elif (isinstance(obj,Rectangle)):
+            return Rectangle.to_dict(obj)
+        elif (isinstance(obj,Circle)):
+            return Circle.to_dict(obj)
+class ShapesDecoder(json.JSONDecoder):
+    def __init__(self):
+        json.JSONDecoder.__init__(
+            self,
+            object_hook=self.dict_to_object,
+        )
+ 
+    def dict_to_object(self, d):
+        if '__class__' in d:
+            class_name = d.pop('__class__')
+            if d['__class__'] == 'Point':
+                objects.append(Point.to_object(d))
+            elif d['__class__'] == 'Line':
+                objects.append(Line.to_object(d))
+            elif d['__class__'] == 'Circle':
+                objects.append(Circle.to_object(d))
+            elif d['__class__'] == 'Rectangle':
+                objects.append(Rectangle.to_object(d))
+        return inst
+
 if __name__=='__main__':
         app=QApplication(sys.argv)
         painter=MainWindow()
