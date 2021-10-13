@@ -8,6 +8,7 @@ import json
 
 objects = []
 selectedIndex = []
+isAPoint = [False]
 brushSize = 8
 toolboxColor = QColor("gray")
 
@@ -306,10 +307,10 @@ class Painter(QWidget):
         if (selectedIndex[0] < 0) :
             self.editMode = False
         if (self.mode == 3) & (not self.editMode) & (e.button() == Qt.LeftButton):
-            self.findObject(e.pos())
+            self.findObject(e.pos(), False)
             self.lastPos = e.pos()
         elif (self.mode == 4) & (e.button() == Qt.LeftButton) & (not self.editMode):
-            self.findObject(e.pos())
+            self.findObject(e.pos(), True)
         elif e.button() == Qt.LeftButton:
             self.isDrawing = True;
             self.lineStart = e.pos()
@@ -370,18 +371,21 @@ class Painter(QWidget):
             selectedIndex[0] = -1
         self.resetPoints()
         self.update()
+        isAPoint[0] = False
     
     def mouseDoubleClickEvent(self, e):
         if (selectedIndex[0] < 0) & (e.button() == Qt.LeftButton):
             self.editMode = False
         if (self.mode == 4) & (not self.editMode) & (e.button() == Qt.LeftButton):
-            res = self.findObject(e.pos())
+            res = self.findObject(e.pos(),False)
             if res:
                 self.editMode = True
                 self.editFunc(self.editMode)
 
     def resizeLine(self,pos):
-        objects[selectedIndex[0]].B = Point(pos.x(),pos.y())
+        if isAPoint[0]: 
+            objects[selectedIndex[0]].A = Point(pos.x(),pos.y())
+        else : objects[selectedIndex[0]].B = Point(pos.x(),pos.y())
 
     def resizeCircle(self, pos):
         obj = objects[selectedIndex[0]]
@@ -410,28 +414,53 @@ class Painter(QWidget):
             if (selectedIndex[0] > 0) : objects[selectedIndex[0]].isSelected = False
             selectedIndex[0] = -1
 
-    def findObject(self,pos):
+    def findObject(self,pos, isEditMode):
         for i in range(len(objects)):
             obj = objects[i]
+            res = False
             if (isinstance(obj,Line)):
                 if (self.checkIsOnLine(obj,pos)):
-                    obj.isSelected = True
-                    selectedIndex[0] = i
-                    self.update()
-                    return True
-            if (isinstance(obj,Rectangle)):
+                    res = True
+            elif (isinstance(obj,Rectangle)):
                 if (self.checkIsOnRectangle(obj,pos)):
-                    obj.isSelected = True
-                    selectedIndex[0] = i
-                    self.update()
-                    return True
-            if (isinstance(obj,Circle)):
+                    res = True
+            elif (isinstance(obj,Circle)):
                 if (self.checkIsOnCircle(obj,pos)):
-                    obj.isSelected = True
-                    selectedIndex[0] = i
-                    self.update()
-                    return True
+                    res = True
+            if (res):
+                if isEditMode & (not self.checkIsOnDistinctivePoint(obj,pos)): return False
+                obj.isSelected = True
+                selectedIndex[0] = i
+                self.update()
+                return True
         return False
+    
+    def checkIsOnDistinctivePoint(self,obj,pos):
+        if (isinstance(obj,Line)):
+            if (self.checkIsNearA(obj,pos)):
+                isAPoint[0] = True
+            else:
+                isAPoint[0] = False
+            return True
+        elif (isinstance(obj,Rectangle)):
+            if (self.checkIsOnPoint(obj.A,pos)):
+                isAPoint[0] = True
+                return True
+            elif self.checkIsOnPoint(obj.B,pos):
+                isAPoint[0] = False
+                return True        
+        elif (isinstance(obj,Circle)):
+            return True
+        return False
+
+    def checkIsNearA(self, obj, pos):
+        return self.distanceToPoint(obj.A, Point(pos.x(), pos.y())) < self.distanceToPoint(obj.B, Point(pos.x(), pos.y()))
+
+    def distanceToPoint(self,pointA, pointB):
+        return math.sqrt(abs(pointA.x - pointB.x)**2 + abs(pointA.y - pointB.y)**2)
+
+    def checkIsOnPoint(self, point, pos):
+        return (pos.x() >= (point.x - brushSize/2)) & (pos.x() <= (point.x + brushSize/2)) & (pos.y() >= (point.y - brushSize/2)) & (pos.y() <= (point.y + brushSize/2))
     
     def checkIsOnRectangle(self,obj,pos):
         minX = min(obj.A.x, obj.B.x)
