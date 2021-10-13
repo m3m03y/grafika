@@ -292,7 +292,7 @@ class Painter(QWidget):
                 self.moveLine(e.pos())
             self.lastPos = e.pos()
             self.update()
-        elif (self.mode == 4) & (selectedIndex[0] >= 0) & (not self.editMode):
+        elif (self.mode == 4) & (selectedIndex[0] >= 0) & (not self.editMode) :
             if (isinstance(objects[selectedIndex[0]],Line)):
                 self.resizeLine(e.pos())
             elif (isinstance(objects[selectedIndex[0]],Circle)):
@@ -305,7 +305,7 @@ class Painter(QWidget):
     def mousePressEvent(self, e):
         if (selectedIndex[0] < 0) :
             self.editMode = False
-        if (self.mode == 3) & (not self.editMode):
+        if (self.mode == 3) & (not self.editMode) & (e.button() == Qt.LeftButton):
             self.findObject(e.pos())
             self.lastPos = e.pos()
         elif (self.mode == 4) & (e.button() == Qt.LeftButton) & (not self.editMode):
@@ -320,7 +320,7 @@ class Painter(QWidget):
             print(objects)
 
     def mouseReleaseEvent(self, e):
-        if self.isDrawing:
+        if self.isDrawing & (e.button() == Qt.LeftButton):
             if (self.mode == 0):
                 A = Point(self.lineStart.x(),self.lineStart.y())
                 B = Point(self.lineEnd.x(),self.lineEnd.y())
@@ -335,7 +335,7 @@ class Painter(QWidget):
                     )
                     return
                 objects.append(line)
-            elif (self.mode == 1):
+            elif (self.mode == 1) & (e.button() == Qt.LeftButton):
                 A = Point(self.lineStart.x(),self.lineStart.y())
                 B = Point(self.lineEnd.x(),self.lineEnd.y())
                 rectangle = Rectangle(A,B)
@@ -349,7 +349,7 @@ class Painter(QWidget):
                     )
                     return
                 objects.append(rectangle)
-            elif (self.mode == 2):
+            elif (self.mode == 2) & (e.button() == Qt.LeftButton):
                 A = Point(self.lineStart.x(),self.lineStart.y())
                 radius = math.sqrt(abs(self.lineStart.x() - self.lineEnd.x())**2 + abs(self.lineStart.y() - self.lineEnd.y())**2)
                 circle = Circle(A,radius)
@@ -365,16 +365,16 @@ class Painter(QWidget):
                 objects.append(circle)
             self.isDrawing = False;
 
-        elif ((self.mode == 3) | (self.mode == 4)) & (selectedIndex[0] >= 0) & (not self.editMode):
+        elif ((self.mode == 3) | (self.mode == 4)) & (selectedIndex[0] >= 0) & (not self.editMode) & (e.button() == Qt.LeftButton):
             objects[selectedIndex[0]].isSelected = False
             selectedIndex[0] = -1
         self.resetPoints()
         self.update()
     
     def mouseDoubleClickEvent(self, e):
-        if (selectedIndex[0] < 0) :
+        if (selectedIndex[0] < 0) & (e.button() == Qt.LeftButton):
             self.editMode = False
-        if (self.mode == 4) & (not self.editMode):
+        if (self.mode == 4) & (not self.editMode) & (e.button() == Qt.LeftButton):
             res = self.findObject(e.pos())
             if res:
                 self.editMode = True
@@ -475,7 +475,7 @@ class Painter(QWidget):
         bc = round(BCx / BCy)
 
         print(str(ab) + " " + str(ac) + " "+ str(bc))
-        return (abs(ab - ac) < 8) & (abs(ab - bc) < 8) & (abs(ac - bc) < 8)
+        return (abs(ab - ac) == 0) & (abs(ab - bc) == 0) & (abs(ac - bc) == 0)
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
