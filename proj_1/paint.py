@@ -5,6 +5,7 @@ import sys
 import math
 from dataclasses import dataclass
 import json
+from array import array
 
 objects = []
 selectedIndex = []
@@ -37,7 +38,7 @@ class Shape:
     def __str__(self):
         return str(self.A)
     def to_object(d):
-        return Shape(d['A'])
+        return Shape(Point.to_object(d['A']))
             
     def to_dict(o):
         if isinstance(o, Shape):
@@ -55,7 +56,7 @@ class Line(Shape):
     def __str__(self):
         return "A:" + str(self.A) + " B:" + str(self.B)
     def to_object(d):
-        return Line(d['A'], d['B'])
+        return Line(Point.to_object(d['A']), Point.to_object(d['B']))
     def to_dict(o):
         if isinstance(o, Line):
             dict = {
@@ -73,7 +74,7 @@ class Rectangle(Shape):
     def __str__(self):
         return "A:" + str(self.A) + " B:" + str(self.B)
     def to_object(d):
-        return Rectangle(d['A'], d['B'])
+        return Rectangle(Point.to_object(d['A']), Point.to_object(d['B']))
     def to_dict(o):
         if isinstance(o, Rectangle):
             dict = {
@@ -91,7 +92,7 @@ class Circle(Shape):
     def __str__(self):
         return "Center:" + str(self.A) + " radius:" + str(self.radius)
     def to_object(d):
-        return Circle(d['A'], d['radius'])
+        return Circle(Point.to_object(d['A']), d['radius'])
     def to_dict(o):
         if isinstance(o, Circle):
             dict = {
@@ -639,9 +640,10 @@ class MainWindow(QMainWindow):
  
         if filePath == "":
             return        
-
-        jsonString = json.dumps(objects, cls=ShapesEncoder)
+        
         if not filePath.__contains__('.json'): filePath += '.json'
+        jsonString = json.dumps(objects, cls=ShapesEncoder)
+
         print(jsonString)
         file = open(filePath, 'w')
         file.write(jsonString)
@@ -656,23 +658,18 @@ class MainWindow(QMainWindow):
         
         file = open(filePath,'r')
         objects.clear()
-        data = str(json.load(file))
+        data = json.load(file)
         print(data)
-        test = json.loads(data, object_hook = self.dict_to_object)
-        print(objects)
+        for obj in data:
+            if obj['__class__'] == 'Line':
+                objects.append(Line.to_object(obj))
+            elif obj['__class__'] == 'Circle':
+                objects.append(Circle.to_object(obj))
+            elif obj['__class__'] == 'Rectangle':
+                objects.append(Rectangle.to_object(obj))
+        self.painter.update()
 
-    def dict_to_object(self,d):
-        if '__class__' in d:
-            class_name = d.pop('__class__')
-            if d['__class__'] == 'Point':
-                return (Point.to_object(d))
-            elif d['__class__'] == 'Line':
-                return (Line.to_object(d))
-            elif d['__class__'] == 'Circle':
-                return (Circle.to_object(d))
-            elif d['__class__'] == 'Rectangle':
-                return (Rectangle.to_object(d))
-            else: return json.loads(d)
+
 class ShapesEncoder(json.JSONEncoder):
      
     def default(self, obj):
@@ -682,25 +679,6 @@ class ShapesEncoder(json.JSONEncoder):
             return Rectangle.to_dict(obj)
         elif (isinstance(obj,Circle)):
             return Circle.to_dict(obj)
-class ShapesDecoder(json.JSONDecoder):
-    def __init__(self):
-        json.JSONDecoder.__init__(
-            self,
-            object_hook=self.dict_to_object,
-        )
- 
-    def dict_to_object(self, d):
-        if '__class__' in d:
-            class_name = d.pop('__class__')
-            if d['__class__'] == 'Point':
-                objects.append(Point.to_object(d))
-            elif d['__class__'] == 'Line':
-                objects.append(Line.to_object(d))
-            elif d['__class__'] == 'Circle':
-                objects.append(Circle.to_object(d))
-            elif d['__class__'] == 'Rectangle':
-                objects.append(Rectangle.to_object(d))
-        return inst
 
 if __name__=='__main__':
         app=QApplication(sys.argv)
