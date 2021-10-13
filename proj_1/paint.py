@@ -122,7 +122,8 @@ class Toolbar(QToolBar):
             button = QToolButton()
             button.setText(btn)
             button.setStatusTip(self.buttons[btn])
-            button.setCheckable(True)
+            if (btn != "Save") & (btn != "Open"):
+                button.setCheckable(True)
             button.setAutoExclusive(True)
             button.clicked.connect(btnClick)
             self.addWidget(button)
