@@ -546,7 +546,7 @@ class Painter(QWidget):
 
     def checkIsOnCircle(self,obj,pos):
         radius =  math.sqrt(abs(obj.A.x - pos.x())**2 + abs(obj.A.y - pos.y())**2)
-        return abs(round(radius) - round(obj.radius)) < 8
+        return abs(round(radius) - round(obj.radius)) < (brushSize/2)
 
     def checkIsOnLine(self, obj, pos):
         # FIRST: check if is between A and B
