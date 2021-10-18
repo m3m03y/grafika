@@ -15,38 +15,45 @@ class FileReader:
         self.maxColorVal = 0
         self.parent = parent
 
-    def saveFile(self):
-        filePath, _ = QFileDialog.getSaveFileName(self.parent, "Save Image", "",
+    def saveFile(self, compression):
+        res = self.openFile()
+        if (not res): return
+
+        saveFilePath, _ = QFileDialog.getSaveFileName(self.parent, "Save Image", "",
             "*")
  
-        if filePath == "":
+        if saveFilePath == "":
             return        
         
+        if not filePath.__contains__('.jpeg'): filePath += '.jpeg'
+
+        self.img.save(saveFilePath, "JPEG", quality = compression)
+        
     def openFile(self):
-        start = datetime.now()
+        self.start = datetime.now()
         filePath, _ = QFileDialog.getOpenFileName(self.parent, 'Open File', "",
             "Images (*.ppm *.jpeg *.jpg)")
  
         if filePath == "":
-            return         
+            return False
         
         ext = self.__getExtension(filePath)
-
-        file = open(filePath,'r')
-        lines = file.readlines()
         sub = datetime.now()
-        subTime = sub - start
+        subTime = sub - self.start
         print('Duration {}.'.format(subTime))
 
         if (ext == ".ppm"):
+            file = open(filePath,'r')
+            lines = file.readlines()
             self.__getPPMImage(lines)
         elif (ext == ".jpeg") | (ext == ".jpg"):
-            self.__getJPEGImage(lines)
+            self.__getJPEGImage(filePath)
         else:
             self.__showErrorMessage("Only ppm and jpeg supported!","Invalid file extensions!")       
         end = datetime.now()   
-        time = end - start
-        print("Duration: " + str(time) + " File: " + str(filePath))
+        time = end - self.start
+        print('Duration {} File {}'.format(time,filePath))
+        return True
 
     def __getExtension(self,path):
         return pathlib.Path(path).suffix
@@ -124,7 +131,9 @@ class FileReader:
                 startFrom+=1
             if (self.mode != "") & (self.width != 0) & (self.height != 0) & (self.maxColorVal != 0):
                 break
-
+        sub = datetime.now()
+        subTime = sub - self.start
+        print('Duration {}.'.format(subTime))
         colors [len(colors):] = lines[startFrom:]
         print("Mode: " + str(self.mode) + " Width: " + str(self.width) + " Height: " + str(self.height) + " Max Color Value: " + str(self.maxColorVal))
         if (self.mode == "P3"):
@@ -134,8 +143,9 @@ class FileReader:
         else:
             self.__showErrorMessage("Only PPM P3 and PPM P6 supported!","File corrupted!")
 
-    def __getJPEGImage(self,lines):
-        print("JPEG")
+    def __getJPEGImage(self,file):
+        self.img = Image.open(file)
+        self.img.show()
 
     def __scaleColor(self,color):
         scale = 255 / int(self.maxColorVal)
@@ -144,31 +154,35 @@ class FileReader:
     def __processP3(self,lines):
         print("Processing P3")
         pixelsCount = (int(self.width) * int(self.height))
-        colors = numpy.zeros((pixelsCount,3))
+        color = []
         column = 0
-        row = 0
+        self.img  = Image.new( mode = "RGB", size = (int(self.width), int(self.height)) )
+        pixels = self.img.load()
+        i = 0
+        j = 0
         for line in lines:
             if (line.__contains__("#")):
                 line = line.split("#")[0]
             values = line.split()
             for val in values:
-                colors[row,column] = int(val)
+                color.append(int(val))
                 if (column == 2):
                     column = 0
-                    row += 1
+                    R = self.__scaleColor(color[0])
+                    G = self.__scaleColor(color[1])
+                    B = self.__scaleColor(color[2])
+                    pixels[j,i] = (R,G,B)
+                    if (j == (self.img.size[0] - 1)):
+                        j = 0
+                        if (i < self.img.size[1]):
+                            i += 1
+                        else:
+                            self.__showErrorMessage("Invalid colors value!","File corrupted!")
+                            return
+                    else: j += 1
+                    color = []
                 else: column += 1
-        # TODO: error printing
-        img  = Image.new( mode = "RGB", size = (int(self.width), int(self.height)) )
-        pixels = img.load()
-        pixelIdx = 0
-        for i in range (img.size[1]):
-            for j in range(img.size[0]):
-                R = self.__scaleColor(colors[pixelIdx][0])
-                G = self.__scaleColor(colors[pixelIdx][1])
-                B = self.__scaleColor(colors[pixelIdx][2])
-                pixels[j,i] = (R,G,B)
-                pixelIdx += 1
-        img.show()
+        self.img.show()
 
     def __processP6(self,colors):
         print("Processing P6")
@@ -186,16 +200,27 @@ class Form(QDialog):
     
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
-
+        self.compression = 50
         openBtn = QPushButton("Open file")
         saveBtn = QPushButton("Save as JPEG")
 
         openBtn.clicked.connect(self.open)
         saveBtn.clicked.connect(self.save)
 
+        self.compressionSlider = QSlider(Qt.Horizontal)
+        self.compressionSlider.setMinimum(10)
+        self.compressionSlider.setMaximum(100)
+        self.compressionSlider.setValue(self.compression)
+        self.compressionSlider.valueChanged.connect(self.sliderValueChange)
+
+        self.compressionValue = QLabel(self)
+        self.compressionValue.setText('Compression: {}'.format(self.compression))
+
         layout = QVBoxLayout()
         layout.addWidget(openBtn)
         layout.addWidget(saveBtn)
+        layout.addWidget(self.compressionSlider)
+        layout.addWidget(self.compressionValue)
 
         self.setLayout(layout)
 
@@ -204,8 +229,15 @@ class Form(QDialog):
         reader.openFile()
 
     def save(self):
+        self.compression = int(self.compressionSlider.value())
+        print('Compression: {}'.format(self.compression))
         reader = FileReader(self)
-        reader.saveFile()
+        reader.saveFile(int(self.compression))
+
+    def sliderValueChange(self):
+        self.compression = int(self.compressionSlider.value())
+        self.compressionValue.setText('Compression: {}'.format(self.compression))
+        self.update()
 
 if __name__=='__main__':
         app=QApplication(sys.argv)
