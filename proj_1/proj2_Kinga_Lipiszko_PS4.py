@@ -41,11 +41,8 @@ class FileReader:
         sub = datetime.now()
         subTime = sub - self.start
         print('Duration {}.'.format(subTime))
-
         if (ext == ".ppm"):
-            file = open(filePath,'r')
-            lines = file.readlines()
-            self.__getPPMImage(lines)
+            self.__getPPMImage(filePath)
         elif (ext == ".jpeg") | (ext == ".jpg"):
             self.__getJPEGImage(filePath)
         else:
@@ -58,17 +55,23 @@ class FileReader:
     def __getExtension(self,path):
         return pathlib.Path(path).suffix
     
-    def __getPPMImage(self,lines):
+    def __getPPMImage(self,filePath):
         colors = []
         startFrom = 0
-        for line in lines:
+        file = open(filePath,'rb') 
+        while True:
+            line = file.readline().rstrip()
+            try:
+                line = str(line.decode("utf-8"))
+            except:
+                print('skip')
             if (line.startswith("#")):
                 print("Comment line: " + line)
                 startFrom+=1
             elif (len(line.split()) < 1):
                 startFrom+=1
                 continue
-            elif (self.mode == "") & (line.startswith("P")):
+            elif (line.startswith("P")):
                 if (line.__contains__("P3")):
                     self.mode = "P3"
                 elif(line.__contains__("P6")):
@@ -134,14 +137,14 @@ class FileReader:
         sub = datetime.now()
         subTime = sub - self.start
         print('Duration {}.'.format(subTime))
-        colors [len(colors):] = lines[startFrom:]
         print("Mode: " + str(self.mode) + " Width: " + str(self.width) + " Height: " + str(self.height) + " Max Color Value: " + str(self.maxColorVal))
         if (self.mode == "P3"):
-            self.__processP3(colors)
+            self.__processP3(colors,file)
         elif (self.mode == "P6"):
-            self.__processP6(colors)
+            self.__processP6(colors,file)
         else:
             self.__showErrorMessage("Only PPM P3 and PPM P6 supported!","File corrupted!")
+        file.close()
 
     def __getJPEGImage(self,file):
         self.img = Image.open(file)
@@ -151,7 +154,7 @@ class FileReader:
         scale = 255 / int(self.maxColorVal)
         return int(scale  * color)
 
-    def __processP3(self,lines):
+    def __processP3(self,lines,file):
         print("Processing P3")
         pixelsCount = (int(self.width) * int(self.height))
         color = []
@@ -160,7 +163,19 @@ class FileReader:
         pixels = self.img.load()
         i = 0
         j = 0
-        for line in lines:
+        while True:
+            if (len(lines) == 0):
+                line = file.readline()
+                if not line:
+                    break
+                line = line.rstrip()
+                try:
+                    line = str(line.decode("utf-8"))
+                except:
+                    print('skip')
+            else:
+                line = lines[0]
+                lines = lines[1:]
             if (line.__contains__("#")):
                 line = line.split("#")[0]
             values = line.split()
@@ -184,8 +199,51 @@ class FileReader:
                 else: column += 1
         self.img.show()
 
-    def __processP6(self,colors):
+    def __processP6(self,lines,file):
         print("Processing P6")
+        pixelsCount = (int(self.width) * int(self.height))
+        color = []
+        column = 0
+        self.img  = Image.new( mode = "RGB", size = (int(self.width), int(self.height)) )
+        pixels = self.img.load()
+        i = 0
+        j = 0
+        while True:
+            if (len(lines) == 0):
+                line = file.readline()
+                if not line:
+                    break
+                line = line.rstrip()
+                try:
+                    line = str(line.decode("utf-8"))
+                except:
+                    print('skip')
+            else:
+                line = lines[0]
+                lines = lines[1:]
+            values = list(line)
+            for val in values:
+                try:
+                    color.append(int(val))
+                except:
+                    color.append(ord(val))
+                if (column == 2):
+                    column = 0
+                    R = self.__scaleColor(color[0])
+                    G = self.__scaleColor(color[1])
+                    B = self.__scaleColor(color[2])
+                    pixels[j,i] = (R,G,B)
+                    if (j == (self.img.size[0] - 1)):
+                        j = 0
+                        if (i < self.img.size[1]):
+                            i += 1
+                        else:
+                            self.__showErrorMessage("Invalid colors value!","File corrupted!")
+                            return
+                    else: j += 1
+                    color = []
+                else: column += 1
+        self.img.show()
     
     def __showErrorMessage(self, msg, title):
         QMessageBox.critical(
