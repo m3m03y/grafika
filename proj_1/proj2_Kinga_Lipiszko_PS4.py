@@ -25,7 +25,7 @@ class FileReader:
         if saveFilePath == "":
             return        
         
-        if not filePath.__contains__('.jpeg'): filePath += '.jpeg'
+        if not saveFilePath.__contains__('.jpeg'): saveFilePath += '.jpeg'
 
         self.img.save(saveFilePath, "JPEG", quality = compression)
         
@@ -197,7 +197,6 @@ class FileReader:
         )
 
 class Form(QDialog):
-    
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
         self.compression = 50
