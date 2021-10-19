@@ -141,13 +141,15 @@ class FileReader:
         self.img.show()
 
     def __scaleColor(self,color):
+        try:
+            color = (int(color))
+        except:
+            color = (ord(color))
         scale = 255 / int(self.maxColorVal)
         return int(scale  * color)
 
     def __processP3(self,lines,file):
         pixelsCount = (int(self.width) * int(self.height))
-        color = []
-        column = 0
         self.img  = Image.new( mode = "RGB", size = (int(self.width), int(self.height)) )
         pixels = self.img.load()
         i = 0
@@ -157,66 +159,54 @@ class FileReader:
         if (str(fileInput).__contains__("#")):
             fileInput = (re.sub(r'#.*\n',' ', fileInput))
         values = fileInput.split()
-        for val in values:
-            color.append(int(val))
-            if (column == 2):
-                column = 0
-                R = self.__scaleColor(color[0])
-                G = self.__scaleColor(color[1])
-                B = self.__scaleColor(color[2])
-                pixels[j,i] = (R,G,B)
-                if (j == (self.img.size[0] - 1)):
-                    j = 0
-                    if (i < self.img.size[1]):
-                        i += 1
-                    else:
-                        self.__showErrorMessage("Invalid colors value!","File corrupted!")
-                        return
-                else: j += 1
-                color = []
-            else: column += 1
+        startIdx = 0
+        endIdx = 3
+        while (startIdx < len(values)):
+            color = values[startIdx:endIdx]
+            startIdx += 3
+            endIdx += 3
+            R = self.__scaleColor(color[0])
+            G = self.__scaleColor(color[1])
+            B = self.__scaleColor(color[2])
+            pixels[j,i] = (R,G,B)
+            if (j == (self.img.size[0] - 1)):
+                j = 0
+                if (i < self.img.size[1]):
+                    i += 1
+                else:
+                    self.__showErrorMessage("Invalid colors value!","File corrupted!")
+                    return
+            else: j += 1
         self.img.show()
 
     def __processP6(self,lines,file):
-        # print("Processing P6")
         pixelsCount = (int(self.width) * int(self.height))
-        color = []
         column = 0
         self.img  = Image.new( mode = "RGB", size = (int(self.width), int(self.height)) )
         pixels = self.img.load()
         i = 0
         j = 0
         self.__printSubTime()
-        while True:
-            if (len(lines) == 0):
-                line = file.readline()
-                if not line:
-                    break
-            else:
-                line = lines[0]
-                lines = lines[1:]
-            values = list(line)
-            for val in values:
-                try:
-                    color.append(int(val))
-                except:
-                    color.append(ord(val))
-                if (column == 2):
-                    column = 0
-                    R = self.__scaleColor(color[0])
-                    G = self.__scaleColor(color[1])
-                    B = self.__scaleColor(color[2])
-                    pixels[j,i] = (R,G,B)
-                    if (j == (self.img.size[0] - 1)):
-                        j = 0
-                        if (i < self.img.size[1]):
-                            i += 1
-                        else:
-                            self.__showErrorMessage("Invalid colors value!","File corrupted!")
-                            return
-                    else: j += 1
-                    color = []
-                else: column += 1
+        values = list(lines) + list(file.read())
+        self.__printSubTime()
+        startIdx = 0
+        endIdx = 3
+        while (startIdx < len(values)):
+            color = values[startIdx:endIdx]
+            startIdx += 3
+            endIdx += 3
+            R = self.__scaleColor(color[0])
+            G = self.__scaleColor(color[1])
+            B = self.__scaleColor(color[2])
+            pixels[j,i] = (R,G,B)
+            if (j == (self.img.size[0] - 1)):
+                j = 0
+                if (i < self.img.size[1]):
+                    i += 1
+                else:
+                    self.__showErrorMessage("Invalid colors value!","File corrupted!")
+                    return
+            else: j += 1
         self.img.show()
     
     def __showErrorMessage(self, msg, title):
