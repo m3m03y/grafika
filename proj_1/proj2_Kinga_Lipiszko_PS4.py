@@ -60,18 +60,20 @@ class FileReader:
         startFrom = 0
         file = open(filePath,'rb') 
         while True:
-            line = file.readline().rstrip()
+            line = file.readline()
+            if not line:
+                break
             try:
-                line = str(line.decode("utf-8"))
+                line = ''.join(map(chr, line))
             except:
                 print('skip')
-            if (line.startswith("#")):
-                print("Comment line: " + line)
+            if (str(line).startswith("#")):
+                # print("Comment line: " + line)
                 startFrom+=1
             elif (len(line.split()) < 1):
                 startFrom+=1
                 continue
-            elif (line.startswith("P")):
+            elif (str(line).startswith("P")):
                 if (line.__contains__("P3")):
                     self.mode = "P3"
                 elif(line.__contains__("P6")):
@@ -81,7 +83,7 @@ class FileReader:
                     return
                 startFrom+=1
             elif (self.mode != "") & (self.width == 0):
-                if (line.__contains__("#")):
+                if (str(line).__contains__("#")):
                     line = line.split("#")[0]
                 params = line.split()
                 if (len(params) == 1):
@@ -103,8 +105,8 @@ class FileReader:
                     return
                 startFrom+=1
             elif (self.mode != "") & (self.width != 0) & (self.height == 0):
-                if (line.__contains__("#")):
-                    line = line.split("#")[0]
+                if (str(line).__contains__("#")):
+                    line = str(line).split("#")[0]
                 params = line.split()
                 if (len(params) == 1):
                     self.height = params[0]
@@ -120,7 +122,7 @@ class FileReader:
                     return
                 startFrom+=1
             elif (self.mode != "") & (self.width != 0) & (self.height != 0):
-                if (line.__contains__("#")):
+                if (str(line).__contains__("#")):
                     line = line.split("#")[0]
                 params = line.split()
                 if (len(params) == 1):
@@ -134,9 +136,6 @@ class FileReader:
                 startFrom+=1
             if (self.mode != "") & (self.width != 0) & (self.height != 0) & (self.maxColorVal != 0):
                 break
-        sub = datetime.now()
-        subTime = sub - self.start
-        print('Duration {}.'.format(subTime))
         print("Mode: " + str(self.mode) + " Width: " + str(self.width) + " Height: " + str(self.height) + " Max Color Value: " + str(self.maxColorVal))
         if (self.mode == "P3"):
             self.__processP3(colors,file)
@@ -155,7 +154,7 @@ class FileReader:
         return int(scale  * color)
 
     def __processP3(self,lines,file):
-        print("Processing P3")
+        # print("Processing P3")
         pixelsCount = (int(self.width) * int(self.height))
         color = []
         column = 0
@@ -200,7 +199,7 @@ class FileReader:
         self.img.show()
 
     def __processP6(self,lines,file):
-        print("Processing P6")
+        # print("Processing P6")
         pixelsCount = (int(self.width) * int(self.height))
         color = []
         column = 0
@@ -213,11 +212,6 @@ class FileReader:
                 line = file.readline()
                 if not line:
                     break
-                line = line.rstrip()
-                try:
-                    line = str(line.decode("utf-8"))
-                except:
-                    print('skip')
             else:
                 line = lines[0]
                 lines = lines[1:]
