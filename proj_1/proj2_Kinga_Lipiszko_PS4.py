@@ -38,9 +38,6 @@ class FileReader:
             return False
         
         ext = self.__getExtension(filePath)
-        sub = datetime.now()
-        subTime = sub - self.start
-        print('Duration {}.'.format(subTime))
         if (ext == ".ppm"):
             self.__getPPMImage(filePath)
         elif (ext == ".jpeg") | (ext == ".jpg"):
@@ -57,7 +54,6 @@ class FileReader:
     
     def __getPPMImage(self,filePath):
         colors = []
-        startFrom = 0
         file = open(filePath,'rb') 
         while True:
             line = file.readline()
@@ -68,10 +64,8 @@ class FileReader:
             except:
                 print('skip')
             if (str(line).startswith("#")):
-                # print("Comment line: " + line)
-                startFrom+=1
+                continue
             elif (len(line.split()) < 1):
-                startFrom+=1
                 continue
             elif (str(line).startswith("P")):
                 if (line.__contains__("P3")):
@@ -81,7 +75,6 @@ class FileReader:
                 else:
                     self.__showErrorMessage("Only PPM P3 and PPM P6 supported!","Invalid PPM mode!")          
                     return
-                startFrom+=1
             elif (self.mode != "") & (self.width == 0):
                 if (str(line).__contains__("#")):
                     line = line.split("#")[0]
@@ -103,7 +96,6 @@ class FileReader:
                 else:
                     self.__showErrorMessage("Something gone wrong, should be size values or max color value!","File corrupted!")          
                     return
-                startFrom+=1
             elif (self.mode != "") & (self.width != 0) & (self.height == 0):
                 if (str(line).__contains__("#")):
                     line = str(line).split("#")[0]
@@ -120,7 +112,6 @@ class FileReader:
                 else:     
                     self.__showErrorMessage("Something gone wrong, should be size values or max color value!","File corrupted!")          
                     return
-                startFrom+=1
             elif (self.mode != "") & (self.width != 0) & (self.height != 0):
                 if (str(line).__contains__("#")):
                     line = line.split("#")[0]
@@ -133,7 +124,6 @@ class FileReader:
                 else:
                     self.__showErrorMessage("Something gone wrong, should be max color value!","File corrupted!")
                     return
-                startFrom+=1
             if (self.mode != "") & (self.width != 0) & (self.height != 0) & (self.maxColorVal != 0):
                 break
         print("Mode: " + str(self.mode) + " Width: " + str(self.width) + " Height: " + str(self.height) + " Max Color Value: " + str(self.maxColorVal))
@@ -154,7 +144,6 @@ class FileReader:
         return int(scale  * color)
 
     def __processP3(self,lines,file):
-        # print("Processing P3")
         pixelsCount = (int(self.width) * int(self.height))
         color = []
         column = 0
@@ -162,6 +151,7 @@ class FileReader:
         pixels = self.img.load()
         i = 0
         j = 0
+        self.__printSubTime()
         while True:
             if (len(lines) == 0):
                 line = file.readline()
@@ -207,6 +197,7 @@ class FileReader:
         pixels = self.img.load()
         i = 0
         j = 0
+        self.__printSubTime()
         while True:
             if (len(lines) == 0):
                 line = file.readline()
@@ -247,6 +238,11 @@ class FileReader:
             buttons=QMessageBox.Ignore,
             defaultButton=QMessageBox.Ignore,
         )
+    
+    def __printSubTime(self):
+        sub = datetime.now()
+        subTime = sub - self.start
+        print('Subtime {}.'.format(subTime))
 
 class Form(QDialog):
     def __init__(self, parent=None):
