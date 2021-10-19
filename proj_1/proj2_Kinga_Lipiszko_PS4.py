@@ -6,6 +6,7 @@ from datetime import datetime
 from PIL import Image
 import pathlib
 import numpy
+import re
 
 class FileReader:
     def __init__(self, parent):
@@ -152,40 +153,28 @@ class FileReader:
         i = 0
         j = 0
         self.__printSubTime()
-        while True:
-            if (len(lines) == 0):
-                line = file.readline()
-                if not line:
-                    break
-                line = line.rstrip()
-                try:
-                    line = str(line.decode("utf-8"))
-                except:
-                    print('skip')
-            else:
-                line = lines[0]
-                lines = lines[1:]
-            if (line.__contains__("#")):
-                line = line.split("#")[0]
-            values = line.split()
-            for val in values:
-                color.append(int(val))
-                if (column == 2):
-                    column = 0
-                    R = self.__scaleColor(color[0])
-                    G = self.__scaleColor(color[1])
-                    B = self.__scaleColor(color[2])
-                    pixels[j,i] = (R,G,B)
-                    if (j == (self.img.size[0] - 1)):
-                        j = 0
-                        if (i < self.img.size[1]):
-                            i += 1
-                        else:
-                            self.__showErrorMessage("Invalid colors value!","File corrupted!")
-                            return
-                    else: j += 1
-                    color = []
-                else: column += 1
+        fileInput = ' '.join(lines) + ' ' + str(file.read().decode())
+        if (str(fileInput).__contains__("#")):
+            fileInput = (re.sub(r'#.*\n',' ', fileInput))
+        values = fileInput.split()
+        for val in values:
+            color.append(int(val))
+            if (column == 2):
+                column = 0
+                R = self.__scaleColor(color[0])
+                G = self.__scaleColor(color[1])
+                B = self.__scaleColor(color[2])
+                pixels[j,i] = (R,G,B)
+                if (j == (self.img.size[0] - 1)):
+                    j = 0
+                    if (i < self.img.size[1]):
+                        i += 1
+                    else:
+                        self.__showErrorMessage("Invalid colors value!","File corrupted!")
+                        return
+                else: j += 1
+                color = []
+            else: column += 1
         self.img.show()
 
     def __processP6(self,lines,file):
