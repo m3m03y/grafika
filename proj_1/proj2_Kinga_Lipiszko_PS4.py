@@ -81,18 +81,18 @@ class FileReader:
                     line = line.split("#")[0]
                 params = line.split()
                 if (len(params) == 1):
-                    self.width =  params[0]
+                    self.width =  int(params[0])
                 elif (len(params) == 2):
-                    self.width =  params[0]
-                    self.height = params[1]
+                    self.width =  int(params[0])
+                    self.height = int(params[1])
                 elif (len(params) == 3):
-                    self.width =  params[0]
-                    self.height = params[1]
-                    self.maxColorVal = params[2]
+                    self.width =  int(params[0])
+                    self.height = int(params[1])
+                    self.maxColorVal = int(params[2])
                 elif (len(params) > 3):
-                    self.width =  params[0]
-                    self.height = params[1]
-                    self.maxColorVal = params[2]
+                    self.width =  int(params[0])
+                    self.height = int(params[1])
+                    self.maxColorVal = int(params[2])
                     colors = params[3:len(params) + 1]
                 else:
                     self.__showErrorMessage("Something gone wrong, should be size values or max color value!","File corrupted!")          
@@ -102,13 +102,13 @@ class FileReader:
                     line = str(line).split("#")[0]
                 params = line.split()
                 if (len(params) == 1):
-                    self.height = params[0]
+                    self.height = int(params[0])
                 elif (len(params) == 2):
-                    self.height = params[0]
-                    self.maxColorVal = params[1]
+                    self.height = int(params[0])
+                    self.maxColorVal = int(params[1])
                 elif (len(params) > 2):
-                    self.height = params[0]
-                    self.maxColorVal = params[1]
+                    self.height = int(params[0])
+                    self.maxColorVal = int(params[1])
                     colors = params[2:len(params) + 1]
                 else:     
                     self.__showErrorMessage("Something gone wrong, should be size values or max color value!","File corrupted!")          
@@ -118,9 +118,9 @@ class FileReader:
                     line = line.split("#")[0]
                 params = line.split()
                 if (len(params) == 1):
-                    self.maxColorVal = params[0]
+                    self.maxColorVal = int(params[0])
                 elif (len(params) > 1):
-                    self.maxColorVal = params[0]
+                    self.maxColorVal = int(params[0])
                     colors = params[2:len(params) + 1]
                 else:
                     self.__showErrorMessage("Something gone wrong, should be max color value!","File corrupted!")
@@ -128,6 +128,7 @@ class FileReader:
             if (self.mode != "") & (self.width != 0) & (self.height != 0) & (self.maxColorVal != 0):
                 break
         print("Mode: " + str(self.mode) + " Width: " + str(self.width) + " Height: " + str(self.height) + " Max Color Value: " + str(self.maxColorVal))
+        self.scale = 255 / self.maxColorVal
         if (self.mode == "P3"):
             self.__processP3(colors,file)
         elif (self.mode == "P6"):
@@ -141,31 +142,29 @@ class FileReader:
         self.img.show()
 
     def __scaleColor(self,color):
+        return int(self.scale * color)
+
+    def __toNumber(self,val):
         try:
-            color = (int(color))
+            return int(val)
         except:
-            color = (ord(color))
-        scale = 255 / int(self.maxColorVal)
-        return int(scale  * color)
+            return ord(val)
 
     def __processP3(self,lines,file):
-        pixelsCount = (int(self.width) * int(self.height))
-        self.img  = Image.new( mode = "RGB", size = (int(self.width), int(self.height)) )
+        self.img  = Image.new( mode = "RGB", size = (self.width, self.height))
         fileInput = ' '.join(lines) + ' ' + str(file.read().decode())
         if (str(fileInput).__contains__("#")):
             fileInput = (re.sub(r'#.*\n',' ', fileInput))
-        values = fileInput.split()
+        values = list(map(int,fileInput.split()))
         self.__printSubTime()
         self.__colorImage(values)
         self.__printSubTime()
         self.img.show()
 
     def __processP6(self,lines,file):
-        pixelsCount = (int(self.width) * int(self.height))
-        column = 0
-        self.img  = Image.new( mode = "RGB", size = (int(self.width), int(self.height)) )
+        self.img  = Image.new( mode = "RGB", size = (self.width, self.height) )
         self.__printSubTime()
-        values = list(lines) + list(file.read())
+        values = list(map(self.__toNumber,list(lines) + list(file.read())))
         self.__printSubTime()
         self.__colorImage(values)
         self.__printSubTime()
@@ -178,10 +177,11 @@ class FileReader:
             color = values[startIdx:endIdx]
             startIdx += 3
             endIdx += 3
-            R = self.__scaleColor(color[0])
-            G = self.__scaleColor(color[1])
-            B = self.__scaleColor(color[2])
-            pixels[j,i] = (R,G,B)
+            if (self.maxColorVal != 255):
+                color[0] = self.__scaleColor(color[0])
+                color[1] = self.__scaleColor(color[1])
+                color[2] = self.__scaleColor(color[2])
+            pixels[j,i] = (color[0],color[1],color[2])
             if (j == (self.img.size[0] - 1)):
                 j = 0
                 if (i < self.img.size[1]):
