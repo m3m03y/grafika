@@ -1,4 +1,5 @@
 import sys
+import platform
 from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import *
@@ -7,6 +8,7 @@ from PIL import Image
 import pathlib
 import numpy
 import re
+import webbrowser
 
 class FileReader:
     def __init__(self, parent):
@@ -135,11 +137,20 @@ class FileReader:
             self.__processP6(colors,file)
         else:
             self.__showErrorMessage("Only PPM P3 and PPM P6 supported!","File corrupted!")
-        file.close()
+
+        if platform.system() == "Linux":
+            if (str(platform.uname()).__contains__("manjaro")):
+                self.__displayOnManjaro()
+        self.img.show()
+
+    def __displayOnManjaro(self):
+        tmpstmp = datetime.now()
+        tempFileName = "/tmp/temporary_{}.PNG".format(tmpstmp)
+        self.img.save(tempFileName,"PNG")
+        webbrowser.open(tempFileName)
 
     def __getJPEGImage(self,file):
         self.img = Image.open(file)
-        self.img.show()
 
     def __scaleColor(self,color):
         return int(self.scale * color)
@@ -156,19 +167,19 @@ class FileReader:
         if (str(fileInput).__contains__("#")):
             fileInput = (re.sub(r'#.*\n',' ', fileInput))
         values = list(map(int,fileInput.split()))
+        file.close()
         self.__printSubTime()
         self.__colorImage(values)
         self.__printSubTime()
-        self.img.show()
 
     def __processP6(self,lines,file):
         self.img  = Image.new( mode = "RGB", size = (self.width, self.height) )
         self.__printSubTime()
         values = list(map(self.__toNumber,list(lines) + list(file.read())))
+        file.close()
         self.__printSubTime()
         self.__colorImage(values)
         self.__printSubTime()
-        self.img.show()
     
     def __colorImage(self,values):
         pixels = self.img.load()
