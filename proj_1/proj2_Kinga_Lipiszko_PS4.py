@@ -46,7 +46,9 @@ class FileReader:
         elif (ext == ".jpeg") | (ext == ".jpg"):
             self.__getJPEGImage(filePath)
         else:
-            self.__showErrorMessage("Only ppm and jpeg supported!","Invalid file extensions!")       
+            self.__showErrorMessage("Only ppm and jpeg supported!","Invalid file extensions!")   
+            return    
+        self.img.show()
         end = datetime.now()   
         time = end - self.start
         print('Duration {} File {}'.format(time,filePath))
@@ -141,7 +143,6 @@ class FileReader:
         if platform.system() == "Linux":
             if (str(platform.uname()).__contains__("manjaro")):
                 self.__displayOnManjaro()
-        self.img.show()
 
     def __displayOnManjaro(self):
         tmpstmp = datetime.now()
