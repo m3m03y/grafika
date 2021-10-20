@@ -48,7 +48,9 @@ class FileReader:
         else:
             self.__showErrorMessage("Only ppm and jpeg supported!","Invalid file extensions!")   
             return    
-        self.img.show()
+        if (platform.system() == "Linux") & str(platform.uname()).__contains__("manjaro"):
+            self.__displayOnManjaro()
+        else: self.img.show()
         end = datetime.now()   
         time = end - self.start
         print('Duration {} File {}'.format(time,filePath))
@@ -140,10 +142,6 @@ class FileReader:
         else:
             self.__showErrorMessage("Only PPM P3 and PPM P6 supported!","File corrupted!")
 
-        if platform.system() == "Linux":
-            if (str(platform.uname()).__contains__("manjaro")):
-                self.__displayOnManjaro()
-
     def __displayOnManjaro(self):
         tmpstmp = datetime.now()
         tempFileName = "/tmp/temporary_{}.PNG".format(tmpstmp)
@@ -163,18 +161,18 @@ class FileReader:
             fileInput = (re.sub(r'#.*\n',' ', fileInput))
         values = list(map(int,fileInput.split()))
         file.close()
-        self.__printSubTime()
+        # self.__printSubTime()
         self.__colorImage(values)
-        self.__printSubTime()
+        # self.__printSubTime()
 
     def __processP6(self,lines,file):
         self.img  = Image.new( mode = "RGB", size = (self.width, self.height) )
-        self.__printSubTime()
+        # self.__printSubTime()
         values = list(lines) + list(file.read())
         file.close()
-        self.__printSubTime()
+        # self.__printSubTime()
         self.__colorImage(values)
-        self.__printSubTime()
+        # self.__printSubTime()
     
     def __colorImage(self,values):
         pixels = self.img.load()
