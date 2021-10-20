@@ -6,7 +6,7 @@ from PySide6.QtCore import *
 from datetime import datetime
 from PIL import Image
 import pathlib
-import numpy
+import numpy as np
 import re
 import webbrowser
 
@@ -156,12 +156,6 @@ class FileReader:
     def __scaleColor(self,color):
         return int(self.scale * color)
 
-    def __toNumber(self,val):
-        try:
-            return int(val)
-        except:
-            return ord(val)
-
     def __processP3(self,lines,file):
         self.img  = Image.new( mode = "RGB", size = (self.width, self.height))
         fileInput = ' '.join(lines) + ' ' + str(file.read().decode())
@@ -176,7 +170,7 @@ class FileReader:
     def __processP6(self,lines,file):
         self.img  = Image.new( mode = "RGB", size = (self.width, self.height) )
         self.__printSubTime()
-        values = list(map(self.__toNumber,list(lines) + list(file.read())))
+        values = list(lines) + list(file.read())
         file.close()
         self.__printSubTime()
         self.__colorImage(values)
