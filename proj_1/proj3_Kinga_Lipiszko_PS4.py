@@ -60,14 +60,22 @@ class Form(QDialog):
 
         # layout.addRow(rgbRow)
         # layout.addRow(cmykRow)
+
+        self.colorBox = QWidget()
+        self.colorBox.setAutoFillBackground(True)
+        self.palette = self.palette()
+        self.palette.setColor(QPalette.Window, QColor(0,0,0))
+        self.colorBox.setPalette(self.palette)
+        self.colorBox.setMinimumHeight(20)
+
         self.rgbInArr = []
         self.cmykInArr = []
         rgb = self.__createColorInput(['R','G','B'], "RGB",self.rgbInArr, self.__showRGB)
         cmyk = self.__createColorInput(['C','M','Y','K'], "CMYK", self.cmykInArr, self.__showCMYK)
 
-
         layout.addRow(rgb)
         layout.addRow(cmyk)
+        layout.addRow(self.colorBox)
         self.setLayout(layout)
 
     def __createColorInput(self, colors, mode, arr, clickAction):
@@ -84,7 +92,10 @@ class Form(QDialog):
                 colorInput.setDecimals(3)
             colorInput.setSingleStep(1.0)
             colorInput.setMinimum(0.0)
-            colorInput.setMaximum(255)
+            if (mode == "RGB"):
+                colorInput.setMaximum(255)
+            else: 
+                colorInput.setMaximum(1.0)            
             colorInput.valueChanged.connect(clickAction)
             row.addWidget(colorInput)
             arr.append(colorInput)
@@ -104,6 +115,7 @@ class Form(QDialog):
         for i in range(len(self.cmykInArr)):
             self.cmykInArr[i].setValue(CMYK[i])
         
+        self.__updateColorBox([R,G,B])
         self.mode = ""
 
     def __showCMYK(self):
@@ -118,9 +130,21 @@ class Form(QDialog):
 
         for i in range(len(self.rgbInArr)):
             self.rgbInArr[i].setValue(RGB[i])
-        
+
+        self.__updateColorBox(RGB)
         self.mode = ""
   
+    def __updateColorBox(self,params):
+        # if (len(params) <= 3):
+        #     self.palette.setColor(QPalette.Window, QColor(params[0],params[1],params[2]))
+        # else:
+        #     self.palette.setColor(QPalette.Window, QColor.fromCmyk(params[0],params[1],params[2],params[3]))
+        self.palette.setColor(QPalette.Window, QColor(params[0],params[1],params[2]))
+
+        self.colorBox.setPalette(self.palette)
+        self.colorBox.update()
+        self.update()
+
 if __name__=='__main__':
         app=QApplication(sys.argv)
         window=Form()
