@@ -70,13 +70,38 @@ class Form(QDialog):
 
         self.rgbInArr = []
         self.cmykInArr = []
-        rgb = self.__createColorInput(['R','G','B'], "RGB",self.rgbInArr, self.__showRGB)
-        cmyk = self.__createColorInput(['C','M','Y','K'], "CMYK", self.cmykInArr, self.__showCMYK)
+        self.rgbSlidersArr = []
+        self.cmykSlidersArr = []
 
-        layout.addRow(rgb)
-        layout.addRow(cmyk)
+        rgbInput = self.__createColorInput(['R','G','B'], "RGB",self.rgbInArr, self.__showRGB)
+        rgbSlider = self.__createColorSlider(['R','G','B'], "RGB",self.rgbSlidersArr, self.__onRGBSlider)
+        cmykInput = self.__createColorInput(['C','M','Y','K'], "CMYK", self.cmykInArr, self.__showCMYK)
+        cmykSlider = self.__createColorSlider(['C','M','Y','K'], "CMYK", self.cmykSlidersArr, self.__onCMYKSlider)
+
+        layout.addRow(rgbInput)
+        layout.addRow(rgbSlider)
+        layout.addRow(cmykInput)
+        layout.addRow(cmykSlider)
         layout.addRow(self.colorBox)
         self.setLayout(layout)
+
+    def __createColorSlider(self,colors,mode,arr,action):
+        row = QHBoxLayout()
+        for color in colors:
+            if (mode == "RGB"):
+                colorInput = QSlider(Qt.Horizontal)
+                colorInput.setSingleStep(1.0)
+                colorInput.setMaximum(255)
+            else: 
+                colorInput = QSlider(Qt.Horizontal)
+                colorInput.setSingleStep(1)
+                colorInput.setMaximum(100)
+            colorInput.setMinimum(0.0)          
+            colorInput.valueChanged.connect(action)
+            row.addWidget(colorInput)
+            arr.append(colorInput)
+
+        return row
 
     def __createColorInput(self, colors, mode, arr, clickAction):
         row = QHBoxLayout()
@@ -87,15 +112,14 @@ class Form(QDialog):
         for color in colors:
             if (mode == "RGB"):
                 colorInput = QSpinBox(self)
+                colorInput.setMaximum(255)
+                colorInput.setSingleStep(1.0)
             else: 
                 colorInput = QDoubleSpinBox(self)
                 colorInput.setDecimals(3)
-            colorInput.setSingleStep(1.0)
-            colorInput.setMinimum(0.0)
-            if (mode == "RGB"):
-                colorInput.setMaximum(255)
-            else: 
                 colorInput.setMaximum(1.0)            
+                colorInput.setSingleStep(0.05)
+            colorInput.setMinimum(0.0)
             colorInput.valueChanged.connect(clickAction)
             row.addWidget(colorInput)
             arr.append(colorInput)
@@ -112,9 +136,7 @@ class Form(QDialog):
 
         CMYK = convertRGBtoCMYK(R,G,B)
 
-        for i in range(len(self.cmykInArr)):
-            self.cmykInArr[i].setValue(CMYK[i])
-        
+        self.__setCMYKValues(CMYK)
         self.__updateColorBox([R,G,B])
         self.mode = ""
 
@@ -128,12 +150,40 @@ class Form(QDialog):
 
         RGB = convertCMYKtoRGB(C,M,Y,B)
 
+        self.__setRGBValues(RGB)
+        self.__updateColorBox(RGB)
+        self.mode = ""
+    
+    def __onRGBSlider(self):
+        if (self.mode == "CMYK"):
+                return
+        self.mode = "RGB"
+        R = self.rgbSlidersArr[0].value()
+        G = self.rgbSlidersArr[1].value()
+        B = self.rgbSlidersArr[2].value()
+
+        self.__setRGBValues([R,G,B])
+        self.mode = ""
+
+    def __onCMYKSlider(self):
+        if (self.mode == "RGB"): return
+        self.mode = "CMYK"
+        C = self.cmykSlidersArr[0].value() / 100
+        M = self.cmykSlidersArr[1].value() / 100
+        Y = self.cmykSlidersArr[2].value() / 100
+        B = self.cmykSlidersArr[3].value() / 100
+
+        self.__setCMYKValues([C,M,Y,B])
+        self.mode = ""
+
+    def __setRGBValues(self,RGB):
         for i in range(len(self.rgbInArr)):
             self.rgbInArr[i].setValue(RGB[i])
 
-        self.__updateColorBox(RGB)
-        self.mode = ""
-  
+    def __setCMYKValues(self,CMYK):
+        for i in range(len(self.cmykInArr)):
+            self.cmykInArr[i].setValue(CMYK[i])
+
     def __updateColorBox(self,params):
         # if (len(params) <= 3):
         #     self.palette.setColor(QPalette.Window, QColor(params[0],params[1],params[2]))
