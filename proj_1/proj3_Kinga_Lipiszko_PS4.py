@@ -5,20 +5,20 @@ from PySide6.QtCore import *
 from datetime import datetime
 maxColorVal = 255
 
-def convertRGBtoCMYK(R,G,B):
-    R = R/maxColorVal
-    G = G/maxColorVal
-    B = B/maxColorVal
+def convertRGBtoCMYK(RGB):
+    R = RGB[0]/maxColorVal
+    G = RGB[1]/maxColorVal
+    B = RGB[2]/maxColorVal
     b = min(1-R,1-G,1-B)
     c = (1-R-b)/(1-b)
     m = (1-G-b)/(1-b)
     y = (1-B-b)/(1-b)
     return [c,m,y,b]
 
-def convertCMYKtoRGB(C,M,Y,B):
-    r = 1 - min(1,C*(1-B)+B)
-    g = 1 - min(1,M*(1-B)+B)
-    b = 1 - min(1,Y*(1-B)+B)
+def convertCMYKtoRGB(CMYK):
+    r = 1 - min(1,CMYK[0]*(1-CMYK[3])+CMYK[3])
+    g = 1 - min(1,CMYK[1]*(1-CMYK[3])+CMYK[3])
+    b = 1 - min(1,CMYK[2]*(1-CMYK[3])+CMYK[3])
     r = maxColorVal * r
     g = maxColorVal * g
     b = maxColorVal * b
@@ -30,36 +30,6 @@ class Form(QDialog):
 
         layout = QFormLayout()
         self.mode = ""
-        # rgbRow = QHBoxLayout()
-        # rgbLabel = QLabel(self)
-
-        # rgbLabel.setText("RGB: ")
-        # R = QDoubleSpinBox(self)
-        # G = QDoubleSpinBox(self)
-        # B = QDoubleSpinBox(self)
-        
-        # rgbRow.addWidget(rgbLabel)
-        # rgbRow.addWidget(R)
-        # rgbRow.addWidget(G)
-        # rgbRow.addWidget(B)
-
-        # cmykRow = QHBoxLayout()
-        # cmykLabel = QLabel(self)
-
-        # cmykLabel.setText("CMYK: ")
-        # C = QDoubleSpinBox(self)
-        # M = QDoubleSpinBox(self)
-        # Y = QDoubleSpinBox(self)
-        # K = QDoubleSpinBox(self)
-        
-        # cmykRow.addWidget(cmykLabel)
-        # cmykRow.addWidget(C)
-        # cmykRow.addWidget(M)
-        # cmykRow.addWidget(Y)
-        # cmykRow.addWidget(K)
-
-        # layout.addRow(rgbRow)
-        # layout.addRow(cmykRow)
 
         self.colorBox = QWidget()
         self.colorBox.setAutoFillBackground(True)
@@ -130,25 +100,27 @@ class Form(QDialog):
         if (self.mode == "CMYK"):
             return
         self.mode = "RGB"
-        R = self.rgbInArr[0].value()
-        G = self.rgbInArr[1].value()
-        B = self.rgbInArr[2].value()
 
-        CMYK = convertRGBtoCMYK(R,G,B)
+        RGB = []
+
+        for i in self.rgbInArr:
+            RGB.append(i.value())
+
+        CMYK = convertRGBtoCMYK(RGB)
 
         self.__setCMYKValues(CMYK)
-        self.__updateColorBox([R,G,B])
+        self.__updateColorBox(RGB)
         self.mode = ""
 
     def __showCMYK(self):
         if (self.mode == "RGB"): return
         self.mode = "CMYK"
-        C = self.cmykInArr[0].value()
-        M = self.cmykInArr[1].value()
-        Y = self.cmykInArr[2].value()
-        B = self.cmykInArr[3].value()
 
-        RGB = convertCMYKtoRGB(C,M,Y,B)
+        CMYK = []
+        for i in self.cmykInArr:
+            CMYK.append(i.value())
+
+        RGB = convertCMYKtoRGB(CMYK)
 
         self.__setRGBValues(RGB)
         self.__updateColorBox(RGB)
@@ -158,9 +130,10 @@ class Form(QDialog):
         if (self.mode == "CMYK"):
                 return
         self.mode = "RGB"
-        R = self.rgbSlidersArr[0].value()
-        G = self.rgbSlidersArr[1].value()
-        B = self.rgbSlidersArr[2].value()
+        RGB = []
+
+        for i in self.rgbSlidersArr:
+            RGB.append(i.value())
 
         self.__setRGBValues([R,G,B])
         self.mode = ""
@@ -168,12 +141,13 @@ class Form(QDialog):
     def __onCMYKSlider(self):
         if (self.mode == "RGB"): return
         self.mode = "CMYK"
-        C = self.cmykSlidersArr[0].value() / 100
-        M = self.cmykSlidersArr[1].value() / 100
-        Y = self.cmykSlidersArr[2].value() / 100
-        B = self.cmykSlidersArr[3].value() / 100
 
-        self.__setCMYKValues([C,M,Y,B])
+        CMYK = []
+
+        for i in self.cmykSlidersArr:
+            CMYK.append(i.value()/100)
+
+        self.__setCMYKValues(CMYK)
         self.mode = ""
 
     def __setRGBValues(self,RGB):
