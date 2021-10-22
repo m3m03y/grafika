@@ -157,16 +157,17 @@ class Form(QDialog):
     def __setRGBValues(self,RGB):
         for i in range(len(self.rgbInArr)):
             self.rgbInArr[i].setValue(RGB[i])
+        for i in range(len(self.rgbSlidersArr)):
+            self.rgbSlidersArr[i].setValue(RGB[i])
 
     def __setCMYKValues(self,CMYK):
         for i in range(len(self.cmykInArr)):
             self.cmykInArr[i].setValue(CMYK[i])
 
+        for i in range(len(self.cmykSlidersArr)):
+            self.cmykSlidersArr[i].setValue(CMYK[i] * 100)
+
     def __updateColorBox(self,params):
-        # if (len(params) <= 3):
-        #     self.palette.setColor(QPalette.Window, QColor(params[0],params[1],params[2]))
-        # else:
-        #     self.palette.setColor(QPalette.Window, QColor.fromCmyk(params[0],params[1],params[2],params[3]))
         self.palette.setColor(QPalette.Window, QColor(params[0],params[1],params[2]))
 
         self.colorBox.setPalette(self.palette)
