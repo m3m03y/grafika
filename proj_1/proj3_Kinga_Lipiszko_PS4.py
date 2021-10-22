@@ -10,9 +10,10 @@ def convertRGBtoCMYK(RGB):
     G = RGB[1]/maxColorVal
     B = RGB[2]/maxColorVal
     b = min(1-R,1-G,1-B)
-    c = (1-R-b)/(1-b)
-    m = (1-G-b)/(1-b)
-    y = (1-B-b)/(1-b)
+    div = max((1-b), 0.000000001)
+    c = (1-R-b)/ div
+    m = (1-G-b)/ div
+    y = (1-B-b)/ div
     return [c,m,y,b]
 
 def convertCMYKtoRGB(CMYK):
@@ -43,9 +44,9 @@ class Form(QDialog):
         self.rgbSlidersArr = []
         self.cmykSlidersArr = []
 
-        rgbInput = self.__createColorInput(['R','G','B'], "RGB",self.rgbInArr, self.__showRGB)
+        rgbInput = self.__createColorInput(['Red','Green','Blue'], "RGB",self.rgbInArr, self.__showRGB)
         rgbSlider = self.__createColorSlider(['R','G','B'], "RGB",self.rgbSlidersArr, self.__onRGBSlider)
-        cmykInput = self.__createColorInput(['C','M','Y','K'], "CMYK", self.cmykInArr, self.__showCMYK)
+        cmykInput = self.__createColorInput(['Cyan','Magenta','Yellow','K'], "CMYK", self.cmykInArr, self.__showCMYK)
         cmykSlider = self.__createColorSlider(['C','M','Y','K'], "CMYK", self.cmykSlidersArr, self.__onCMYKSlider)
 
         layout.addRow(rgbInput)
@@ -80,6 +81,9 @@ class Form(QDialog):
         label.setText(mode)
         row.addWidget(label)
         for color in colors:
+            nameLabel = QLabel(self)
+            nameLabel.setText('{} :'.format(color))
+            row.addWidget(nameLabel)
             if (mode == "RGB"):
                 colorInput = QSpinBox(self)
                 colorInput.setMaximum(255)
@@ -135,7 +139,7 @@ class Form(QDialog):
         for i in self.rgbSlidersArr:
             RGB.append(i.value())
 
-        self.__setRGBValues([R,G,B])
+        self.__setRGBValues(RGB)
         self.mode = ""
 
     def __onCMYKSlider(self):
