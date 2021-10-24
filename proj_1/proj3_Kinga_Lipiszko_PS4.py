@@ -30,7 +30,29 @@ def convertCMYKtoRGB(CMYK):
     b = maxColorVal * b
     return [r,g,b]
 
-# def createRGBMatrix():
+def createRGBMatrix():
+    # colors = []
+    # x = 0
+    # y = 0
+    # z = 0
+    # colors.append([x,y,z,1])
+    # for i in range (23):
+    #     x += 0.5
+    #     y += 0.5
+    #     z += 0.5
+    #     colors.append([x,y,z,1])
+    # return colors
+    return [
+        (1,0,0,1),(0.9,0,0,1), (0.8,0,0,1),
+        (0,1,0,1),(0,0.9,0,1), (0,0.8,0,1),
+        (0.5,0.5,0,1),(0.5,0,0.5,1), (0,0.5,0.5,1),
+        (0.5,0.5,0,1),(0.5,0,0.5,1), (0,0.5,0.5,1),
+        (0,0,0,1),(1,1,1,1), (0,0,0,1),
+        (0,0,0,1),(1,1,1,1), (0,0,0,1),
+        (1,0,0,1),(0,1,0,1), (0,0,1,1),
+        (1,0,0,1),(0,1,0,1), (0,0,1,1)
+        ]
+
 
 class Form(QDialog):
     def __init__(self, parent=None):
@@ -61,6 +83,38 @@ class Form(QDialog):
         layout.addRow(cmykInput)
         layout.addRow(cmykSlider)
         layout.addRow(self.colorBox)
+
+
+        self.canvas = scene.SceneCanvas(keys='interactive', size=(800, 600), show=True)
+
+        view = self.canvas.central_widget.add_view()
+        view.bgcolor = 'white'
+        view.camera = 'turntable'
+        view.padding = 100
+
+        # colors = [(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1),(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1)]
+        # colors = [
+        # (1,0,0,1),(0,1,0,1), (0,0,1,1),
+        # (1,0,0,1),(0,1,0,1), (0,0,1,1),
+        # (0.5,0.5,0,1),(0.5,0,0.5,1), (0,0.5,0.5,1),
+        # (0.5,0.5,0,1),(0.5,0,0.5,1), (0,0.5,0.5,1),
+        # (0,0,0,1),(1,1,1,1), (0,0,0,1),
+        # (0,0,0,1),(1,1,1,1), (0,0,0,1),
+        # (1,0,0,1),(0,1,0,1), (0,0,1,1),
+        # (1,0,0,1),(0,1,0,1), (0,0,1,1)
+        # ]
+
+#  [(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1)],
+        colors = createRGBMatrix()
+        cube = scene.visuals.Box(1, 1, 1, vertex_colors = colors,
+                                parent=view.scene)
+
+        self.canvas.create_native()
+        self.canvas.native.setParent(self)
+
+
+        layout.addRow(self.canvas.native)
+
         self.setLayout(layout)
 
     def __createColorSlider(self,colors,mode,arr,action):
@@ -183,21 +237,7 @@ class Form(QDialog):
 
 if __name__=='__main__':
         converter=QApplication(sys.argv)
-        canvas = scene.SceneCanvas(keys='interactive', size=(800, 600), show=True)
-
-        view = canvas.central_widget.add_view()
-        view.bgcolor = 'white'
-        view.camera = 'turntable'
-        view.padding = 100
-
-        colors = [(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1),(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1)]
-
-#  [(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1)],
-        cube = scene.visuals.Box(1, 1, 1, vertex_colors = colors,
-                                parent=view.scene)
 
         window=Form()
         window.show()
-        canvas.show()
         converter.exec()
-        app.run()
