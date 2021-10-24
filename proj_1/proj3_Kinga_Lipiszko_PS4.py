@@ -3,6 +3,11 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import *
 from datetime import datetime
+import numpy as np
+from vispy import app, gloo, scene
+from vispy.util.transforms import perspective, translate, rotate
+from vispy.color import Color
+
 maxColorVal = 255
 
 def convertRGBtoCMYK(RGB):
@@ -24,7 +29,9 @@ def convertCMYKtoRGB(CMYK):
     g = maxColorVal * g
     b = maxColorVal * b
     return [r,g,b]
-    
+
+# def createRGBMatrix():
+
 class Form(QDialog):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
@@ -175,7 +182,22 @@ class Form(QDialog):
         self.update()
 
 if __name__=='__main__':
-        app=QApplication(sys.argv)
+        converter=QApplication(sys.argv)
+        canvas = scene.SceneCanvas(keys='interactive', size=(800, 600), show=True)
+
+        view = canvas.central_widget.add_view()
+        view.bgcolor = 'white'
+        view.camera = 'turntable'
+        view.padding = 100
+
+        colors = [(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1),(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1)]
+
+#  [(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1)],
+        cube = scene.visuals.Box(1, 1, 1, vertex_colors = colors,
+                                parent=view.scene)
+
         window=Form()
         window.show()
-        app.exec()
+        canvas.show()
+        converter.exec()
+        app.run()
