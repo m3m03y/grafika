@@ -30,28 +30,28 @@ def convertCMYKtoRGB(CMYK):
     b = maxColorVal * b
     return [r,g,b]
 
-def createRGBMatrix():
-    # colors = []
-    # x = 0
-    # y = 0
-    # z = 0
-    # colors.append([x,y,z,1])
-    # for i in range (23):
-    #     x += 0.5
-    #     y += 0.5
-    #     z += 0.5
-    #     colors.append([x,y,z,1])
-    # return colors
-    return [(0,0,0,1),(0,0,1,1),(1,0,0,1), #Black/Blue/Red
-        (1,0,1,1),(0,1,0,1),(0,0.5,1,1), # Magenta/Green/Cyan
-        (1,1,0,1),(1,1,1,1),(1,0,1,1), # Yellow/White/Magenta
-        (1,1,1,1),(1,0,0,1),(1,1,0,1), # White/Red/Yellow 
-        (0,0,1,1),(0,0.5,1,1),(0,0,0,1), # Blue/Cyan/Black
-        (0,1,0,1),(1,1,0,1),(0,1,0,1), # Green/Yellow/Black
-        (1,0,0,1),(0,0,0,1),(1,1,1,1), # Red/Black/White
-        (0,0.5,1,1),(1,0,1,1),(0,0,1,1) # Cyan/Magenta/Blue
-        ]
+def addColors(color1, color2):
+    return [color1[0] + color2[0],color1[1] + color2[1],color1[2] + color2[2]]
 
+def createRGBMatrix():
+    vertex_order = [
+        [0,14,19],      #Black
+        [1,12,23],      #Blue
+        [2,10,18],      #Green
+        [3,8,22],       #Cyan
+        [4,15,17],      #Red
+        [5,13,21],      #Magenta
+        [6,11,16],      #Yellow
+        [7,9,20]        #White
+    ]
+    colors = [0,0,0] * len(vertex_order)
+    for i in range (len(vertex_order)):
+        color = list('{0:03b}'.format(vertex_order[i][0]))
+        for j in range (len(vertex_order[i])):
+            idx = vertex_order[i][j]
+            colors[idx] = color
+
+    return colors
 
 class Form(QDialog):
     def __init__(self, parent=None):
