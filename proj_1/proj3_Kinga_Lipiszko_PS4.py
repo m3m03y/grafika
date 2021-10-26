@@ -22,9 +22,10 @@ def convertRGBtoCMYK(RGB):
     return [c,m,y,b]
 
 def convertCMYKtoRGB(CMYK):
-    r = 1 - min(1,CMYK[0]*(1-CMYK[3])+CMYK[3])
-    g = 1 - min(1,CMYK[1]*(1-CMYK[3])+CMYK[3])
-    b = 1 - min(1,CMYK[2]*(1-CMYK[3])+CMYK[3])
+    mul = 1-CMYK[3]
+    r = 1 - min(1,CMYK[0]*(mul)+CMYK[3])
+    g = 1 - min(1,CMYK[1]*(mul)+CMYK[3])
+    b = 1 - min(1,CMYK[2]*(mul)+CMYK[3])
     r = maxColorVal * r
     g = maxColorVal * g
     b = maxColorVal * b
@@ -91,21 +92,8 @@ class Form(QDialog):
         view.camera = 'turntable'
         view.padding = 100
 
-        # colors = [(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1),(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1)]
-        # colors = [
-        # (1,0,0,1),(0,1,0,1), (0,0,1,1),
-        # (1,0,0,1),(0,1,0,1), (0,0,1,1),
-        # (0.5,0.5,0,1),(0.5,0,0.5,1), (0,0.5,0.5,1),
-        # (0.5,0.5,0,1),(0.5,0,0.5,1), (0,0.5,0.5,1),
-        # (0,0,0,1),(1,1,1,1), (0,0,0,1),
-        # (0,0,0,1),(1,1,1,1), (0,0,0,1),
-        # (1,0,0,1),(0,1,0,1), (0,0,1,1),
-        # (1,0,0,1),(0,1,0,1), (0,0,1,1)
-        # ]
-
-#  [(0,0,0,1),(1,0,0,1),(0,1,0,1),(0,0,0,1),(0,1,0,1),(1,1,0,1),(0,0,1,1),(1,0,1,1),(0,1,1,1),(1,1,1,1),(0,1,1,1),(1,1,1,1)],
         colors = createRGBMatrix()
-        cube = scene.visuals.Box(1, 1, 1, vertex_colors = colors,
+        cube = scene.visuals.Cube(1, vertex_colors = colors,
                                 parent=view.scene)
 
         self.canvas.create_native()
@@ -235,8 +223,7 @@ class Form(QDialog):
         self.update()
 
 if __name__=='__main__':
-        converter=QApplication(sys.argv)
-
-        window=Form()
-        window.show()
-        converter.exec()
+    converter=QApplication(sys.argv)
+    window=Form()
+    window.show()
+    converter.exec()
