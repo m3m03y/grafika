@@ -3,7 +3,8 @@ import numpy as np
 
 class Cube():
   def __init__(self):
-    r, g, b = np.indices((21,21,21)) / 20.0
+    ind = np.indices((21,21,21)) / 20.0
+    r,g,b = ind
     rc = self.midpoints(r)
     gc = self.midpoints(g)
     bc = self.midpoints(b)
@@ -15,7 +16,7 @@ class Cube():
     colors[..., 1] = gc
     colors[..., 2] = bc
 
-    fig = plt.figure(figsize=(6,6))
+    fig = plt.figure(figsize=(10,10))
     ax = fig.add_subplot(projection='3d')
     ax.voxels(r, g, b, sphere,
               facecolors=colors,
