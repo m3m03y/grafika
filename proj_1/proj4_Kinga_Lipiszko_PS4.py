@@ -17,7 +17,12 @@ MODES = [
     "Division",                             #3
     "Adjust brightness",                    #4
     "Convert to greyscale (ratio)",         #5
-    "Convert to greyscale (average)"        #6
+    "Convert to greyscale (average)",       #6
+    "Average filter",                       #7
+    "Median filter",                        #8
+    "Sobel filter",                         #9
+    "Highpass filter",                      #10
+    "Gauss filter"                           #11
     ]
 
 MIN_VAL = 0
@@ -116,6 +121,21 @@ class ImageConverter:
         image = self.__processImage(self.__convertToGrayscaleAverage, image, value)
         return image
 
+    def averageFilter(self, image, value):
+        return image    
+    
+    def medianFilter(self, image, value):
+        return image    
+    
+    def sobelFilter(self, image, value):
+        return image    
+    
+    def highpassFilter(self, image, value):
+        return image    
+    
+    def gaussFilter(self, image, value):
+        return image
+
 class Form(QDialog):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
@@ -188,7 +208,17 @@ class Form(QDialog):
         elif (int(pos) == 5):
             self.img = self.converter.convertToGrayscaleRatio(self.img,val)        
         elif (int(pos) == 6):
-            self.img = self.converter.convertToGrayscaleAverage(self.img,val)
+            self.img = self.converter.convertToGrayscaleAverage(self.img,val)        
+        elif (int(pos) == 7):
+            self.img = self.converter.averageFilter(self.img,val)
+        elif (int(pos) == 8):
+            self.img = self.converter.medianFilter(self.img,val)
+        elif (int(pos) == 9):
+            self.img = self.converter.sobelFilter(self.img,val)
+        elif (int(pos) == 10):
+            self.img = self.converter.highpassFilter(self.img,val)
+        elif (int(pos) == 11):
+            self.img = self.converter.gaussFilter(self.img,val)
         self.__fixScale()
         self.__showImage()
 
@@ -198,7 +228,7 @@ class Form(QDialog):
             self.__setMinMaxValues(MIN_VAL,MAX_VAL)
         elif (pos == 4):
             self.__setMinMaxValues(-75,75)
-        elif (pos == 5) or (pos == 6):
+        elif (pos >= 5):
             self.__setMinMaxValues(0,0)
 
 
