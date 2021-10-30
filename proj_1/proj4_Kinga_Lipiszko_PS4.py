@@ -9,6 +9,7 @@ import pathlib
 import numpy as np
 import re
 import webbrowser
+import statistics
 
 MODES = [
     "Addition",                             #0
@@ -18,7 +19,7 @@ MODES = [
     "Adjust brightness",                    #4
     "Convert to greyscale (ratio)",         #5
     "Convert to greyscale (average)",       #6
-    "Average filter",                       #7
+    "Average/Mean filter",                       #7
     "Median filter",                        #8
     "Sobel filter",                         #9
     "Highpass filter",                      #10
@@ -36,6 +37,16 @@ class ImageConverter:
                 pix = image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
                 r, g, b = func([r, g, b], val)
+                image.setPixelColor(x,y, QColor(r,g,b))
+        return image
+
+    def __processImageFiltering(self, func, image, val):
+        for y in range (image.height()):
+            for x in range (image.width()):
+                pix = image.pixel(x,y)
+                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                if (x > 0) and (x < (image.width() -1)) and (y > 0) and (y < (image.height() - 1)):
+                    r, g, b = func([r, g, b], val, [x,y], image)
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image
 
@@ -93,6 +104,45 @@ class ImageConverter:
         avg = round((current[0] + current[1] + current[2]) / 3)
         return [avg,avg,avg]
 
+    def __calculateAverageFilter(self, current, val, pos, image):
+        count = 0
+        r_sum = 0
+        g_sum = 0
+        b_sum = 0
+        # Czym dopełniać maskę https://inst.eecs.berkeley.edu/~cs194-26/fa20/Lectures/ImageProcessingFilteringII.pdf
+        for x in range(pos[0] - 1, pos[0] + 2): # +2 because not included ended position
+            for y in range(pos[1] - 1, pos[1] + 2):
+                pix = image.pixel(x,y)
+                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                r_sum += r
+                g_sum += g
+                b_sum += b
+                count += 1
+        r_val = round(r_sum/count)
+        g_val = round(g_sum/count)
+        b_val = round(b_sum/count)
+        return [r_val,g_val,b_val]
+
+    def __calculateMedianFilter(self, current, val, pos, image):
+        r_arr = []
+        g_arr = []
+        b_arr = []
+        for x in range(pos[0] - 1, pos[0] + 2):
+            for y in range(pos[1] - 1, pos[1] + 2):
+                pix = image.pixel(x,y)
+                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                r_arr.append(r)
+                g_arr.append(g)
+                b_arr.append(b)
+        r_arr = sorted(r_arr)
+        g_arr = sorted(g_arr)
+        b_arr = sorted(b_arr)
+
+        r_val = round(statistics.median(r_arr))
+        g_val = round(statistics.median(g_arr))
+        b_val = round(statistics.median(b_arr))
+        return [r_val,g_val,b_val]
+
     def add(self, image, value):
         image = self.__processImage(self.__add, image, value)
         return image
@@ -122,9 +172,11 @@ class ImageConverter:
         return image
 
     def averageFilter(self, image, value):
+        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value)
         return image    
     
     def medianFilter(self, image, value):
+        image = self.__processImageFiltering(self.__calculateMedianFilter, image, value)
         return image    
     
     def sobelFilter(self, image, value):
