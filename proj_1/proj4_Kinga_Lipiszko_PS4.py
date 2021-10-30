@@ -19,11 +19,12 @@ MODES = [
     "Adjust brightness",                    #4
     "Convert to greyscale (ratio)",         #5
     "Convert to greyscale (average)",       #6
-    "Average/Mean filter",                       #7
+    "Average/Mean filter",                  #7
     "Median filter",                        #8
-    "Sobel filter",                         #9
-    "Highpass filter",                      #10
-    "Gauss filter"                           #11
+    "Sobel filter (horizontal)",            #9
+    "Sobel filter (vertical)",              #10
+    "Highpass filter",                      #11
+    "Gauss filter"                          #12
     ]
 
 MIN_VAL = 0
@@ -40,13 +41,13 @@ class ImageConverter:
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image
 
-    def __processImageFiltering(self, func, image, val):
+    def __processImageFiltering(self, func, image, val, mask):
         for y in range (image.height()):
             for x in range (image.width()):
                 pix = image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
                 if (x > 0) and (x < (image.width() -1)) and (y > 0) and (y < (image.height() - 1)):
-                    r, g, b = func([r, g, b], val, [x,y], image)
+                    r, g, b = func([r, g, b], val, [x,y], image, mask)
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image
 
@@ -104,7 +105,7 @@ class ImageConverter:
         avg = round((current[0] + current[1] + current[2]) / 3)
         return [avg,avg,avg]
 
-    def __calculateAverageFilter(self, current, val, pos, image):
+    def __calculateAverageFilter(self, current, val, pos, image, mask):
         count = 0
         r_sum = 0
         g_sum = 0
@@ -112,18 +113,24 @@ class ImageConverter:
         # Czym dopełniać maskę https://inst.eecs.berkeley.edu/~cs194-26/fa20/Lectures/ImageProcessingFilteringII.pdf
         for x in range(pos[0] - 1, pos[0] + 2): # +2 because not included ended position
             for y in range(pos[1] - 1, pos[1] + 2):
+                idxX = x - (pos[0] - 1)
+                idxY = y - (pos[1] - 1)
+                maskVal = mask[idxX][idxY]
                 pix = image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                r_sum += r
-                g_sum += g
-                b_sum += b
+                r_sum += r * maskVal
+                g_sum += g * maskVal
+                b_sum += b * maskVal
                 count += 1
-        r_val = round(r_sum/count)
-        g_val = round(g_sum/count)
-        b_val = round(b_sum/count)
+        r_val = round(abs(r_sum)/count)
+        g_val = round(abs(g_sum)/count)
+        b_val = round(abs(b_sum)/count)
+        r_val = max(min(r_val,255),0)
+        g_val = max(min(g_val,255),0)
+        b_val = max(min(b_val,255),0)
         return [r_val,g_val,b_val]
 
-    def __calculateMedianFilter(self, current, val, pos, image):
+    def __calculateMedianFilter(self, current, val, pos, image, mask = None):
         r_arr = []
         g_arr = []
         b_arr = []
@@ -172,20 +179,50 @@ class ImageConverter:
         return image
 
     def averageFilter(self, image, value):
-        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value)
+        mask = [
+            [1,1,1],
+            [1,1,1],
+            [1,1,1]
+        ]
+        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
         return image    
     
     def medianFilter(self, image, value):
-        image = self.__processImageFiltering(self.__calculateMedianFilter, image, value)
+        image = self.__processImageFiltering(self.__calculateMedianFilter, image, value, None)
         return image    
     
-    def sobelFilter(self, image, value):
+    def sobelFilter(self, image, value, isHorizontal):
+        if isHorizontal:
+            mask = [
+                [-1,-2,-1],
+                [0,0,0],
+                [1,2,1]
+            ]
+        else: 
+            mask = [
+                [-1,0,1],
+                [-2,0,2],
+                [-1,0,1]
+            ]
+        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
         return image    
     
     def highpassFilter(self, image, value):
+        mask = [
+            [-1,-1,-1],
+            [-1,9,-1],
+            [-1,-1,-1]
+        ]
+        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
         return image    
     
-    def gaussFilter(self, image, value):
+    def gaussFilter(self, image, value): #https://courses.cs.washington.edu/courses/cse455/09wi/Lects/lect2.pdf
+        mask = [
+            [1,2,1],
+            [2,4,2],
+            [1,2,1]
+        ]
+        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
         return image
 
 class Form(QDialog):
@@ -212,7 +249,7 @@ class Form(QDialog):
 
     def __open(self):
         filePath, _ = QFileDialog.getOpenFileName(self, 'Open File', "",
-            "Images (*.ppm *.jpeg *.jpg)")
+            "Images (*.ppm *.jpeg *.jpg *.png)")
  
         if filePath == "":
             return False
@@ -266,10 +303,12 @@ class Form(QDialog):
         elif (int(pos) == 8):
             self.img = self.converter.medianFilter(self.img,val)
         elif (int(pos) == 9):
-            self.img = self.converter.sobelFilter(self.img,val)
+            self.img = self.converter.sobelFilter(self.img,val, True)
         elif (int(pos) == 10):
-            self.img = self.converter.highpassFilter(self.img,val)
+            self.img = self.converter.sobelFilter(self.img,val, False)
         elif (int(pos) == 11):
+            self.img = self.converter.highpassFilter(self.img,val)
+        elif (int(pos) == 12):
             self.img = self.converter.gaussFilter(self.img,val)
         self.__fixScale()
         self.__showImage()
