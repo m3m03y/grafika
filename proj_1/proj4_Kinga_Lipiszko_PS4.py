@@ -14,14 +14,15 @@ MODES = [
     "Multiplication",                       #2
     "Division",                             #3
     "Adjust brightness",                    #4
-    "Convert to greyscale (ratio)",         #5-
+    "Convert to greyscale (ratio)",         #5
     "Convert to greyscale (average)",       #6
     "Average/Mean filter",                  #7
     "Median filter",                        #8
     "Sobel filter (horizontal)",            #9
     "Sobel filter (vertical)",              #10
     "Highpass filter",                      #11
-    "Gauss filter"                          #12
+    "Gauss filter",                         #12
+    "Custom mask"                           #13
     ]
 
 MIN_VAL = 0
@@ -228,6 +229,10 @@ class ImageConverter:
             [1,2,1]
         ]) * (1.0 / 16.0)
         image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
+        return image    
+    
+    def customFilter(self, image, value, mask):
+        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
         return image
 
 class Form(QDialog):
@@ -253,7 +258,49 @@ class Form(QDialog):
         self.layout.addRow(submitBtn)
         self.successLabel = QLabel(" ")
         self.layout.addRow(self.successLabel)
+
+        self.maskRow = QHBoxLayout()
+        self.layout.addRow(self.maskRow)
+        self.table = QTableView()
+        self.layout.addRow(self.table)
         self.setLayout(self.layout)
+
+    def __sizeChanged(self):
+        size = self.maskSizeInput.value()
+        self.model = QStandardItemModel(size,size,self)
+        self.table.setModel(self.model)
+        self.update()
+
+    def __initMaskInput(self):
+        self.maskSize = QLabel("Mask size: ")
+        self.maskSizeInput = QSpinBox()
+        self.maskSizeInput.setMinimum(3)
+        self.maskSizeInput.setMaximum(51)
+        self.maskSizeInput.setSingleStep(2)
+        self.maskSizeInput.valueChanged.connect(self.__sizeChanged)
+        self.maskRow.addWidget(self.maskSize)
+        self.maskRow.addWidget(self.maskSizeInput)
+        self.__sizeChanged()
+        self.update()
+
+    def __hideMaskInput(self):
+        # self.maskRow = QHBoxLayout()
+        # self.table = QTableView()
+        self.update()
+
+    def __readMaskInput(self):
+        mask = []
+        model = self.table.model()
+        for row in range(model.rowCount()):
+            mask.append([])
+            for column in range(model.columnCount()):
+                index = model.index(row, column)
+                try:
+                    mask[row].append(float(model.data(index)))
+                except ValueError or TypeError or AttributeError: 
+                    self.__showErrorMessage("Mask values must be numbers", "Invalid value")
+                    return None
+        return mask
 
     def __open(self):
         filePath, _ = QFileDialog.getOpenFileName(self, 'Open File', "",
@@ -325,6 +372,11 @@ class Form(QDialog):
             self.img = self.converter.highpassFilter(self.img,val)
         elif (int(pos) == 12):
             self.img = self.converter.gaussFilter(self.img,val)
+        elif (int(pos) == 13):
+            mask = self.__readMaskInput()
+            if (mask is None): return
+            print(mask)
+            self.img = self.converter.customFilter(self.img,val,mask)
         self.successLabel.setText("Done!")
         self.__fixScale(self.img)
         self.__showImage()
@@ -332,6 +384,7 @@ class Form(QDialog):
     def __changeMode(self):
         self.successLabel.setText(" ")
         self.update()
+        self.__hideMaskInput()
         pos = self.menu.currentIndex()
         if (pos >= 0) and (pos <= 3):
             self.__setMinMaxValues(MIN_VAL,MAX_VAL)
@@ -339,6 +392,8 @@ class Form(QDialog):
             self.__setMinMaxValues(-75,75)
         elif (pos >= 5):
             self.__setMinMaxValues(0,0)
+        if (pos == 13):
+            self.__initMaskInput()
 
 
     def __setMinMaxValues(self, minVal, maxVal):
