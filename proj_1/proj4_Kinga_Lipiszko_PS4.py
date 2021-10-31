@@ -10,6 +10,8 @@ import numpy as np
 import re
 import webbrowser
 import statistics
+from scipy.signal import convolve2d as cv2d
+
 
 MODES = [
     "Addition",                             #0
@@ -32,6 +34,12 @@ MAX_VAL = 255
 MAX_COLOR_VALUE = 255
 
 class ImageConverter:
+    def __init__(self, originalImage):
+        self.original = originalImage
+
+    def setOriginalImage(self, originalImage):
+        self.original = originalImage
+        
     def __processImage(self, func, image, val):
         for y in range (image.height()):
             for x in range (image.width()):
@@ -42,14 +50,14 @@ class ImageConverter:
         return image
 
     def __processImageFiltering(self, func, image, val, mask):
-        for y in range (image.height()):
-            for x in range (image.width()):
-                pix = image.pixel(x,y)
+        for y in range (image .height()):
+            for x in range (image .width()):
+                pix = image .pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if (x > 0) and (x < (image.width() -1)) and (y > 0) and (y < (image.height() - 1)):
+                if (x > 0) and (x < (image .width() -1)) and (y > 0) and (y < (image .height() - 1)):
                     r, g, b = func([r, g, b], val, [x,y], image, mask)
-                image.setPixelColor(x,y, QColor(r,g,b))
-        return image
+                image .setPixelColor(x,y, QColor(r,g,b))
+        return image 
 
     def __add(self, current, val): 
         for i in range(len(current)):
@@ -150,6 +158,44 @@ class ImageConverter:
         b_val = round(statistics.median(b_arr))
         return [r_val,g_val,b_val]
 
+    def __calculateMaskFilter(self, current, val, pos, image, mask):
+        # for x in range(pos[0] - 1, pos[0] + 2): # +2 because not included ended position
+        #     for y in range(pos[1] - 1, pos[1] + 2):
+        #         idxX = x - (pos[0] - 1)
+        #         idxY = y - (pos[1] - 1)
+        #         maskVal = mask[idxX][idxY]
+        #         pix = image.pixel(x,y)
+        #         r,g,b = qRed(pix) * maskVal, qGreen(pix) * maskVal, qBlue(pix) * maskVal
+        #         r = max(min(r,255),0)
+        #         g = max(min(g,255),0)
+        #         b = max(min(b,255),0)
+        #         image.setPixelColor(x,y, QColor(r,g,b))
+                
+        # pix = image.pixel(pos[0],pos[1])
+        # r, g, b = qRed(pix), qGreen(pix), qBlue(pix)
+        # return [r,g,b]
+        r_sum = 0
+        g_sum = 0
+        b_sum = 0
+        # Czym dopełniać maskę https://inst.eecs.berkeley.edu/~cs194-26/fa20/Lectures/ImageProcessingFilteringII.pdf
+        for x in range(pos[0] - 1, pos[0] + 2): # +2 because not included ended position
+            for y in range(pos[1] - 1, pos[1] + 2):
+                idxX = x - (pos[0] - 1)
+                idxY = y - (pos[1] - 1)
+                maskVal = mask[idxX][idxY]
+                pix = self.original.pixel(x,y)
+                r,g,b = qRed(pix) * maskVal, qGreen(pix) * maskVal, qBlue(pix) * maskVal
+                r_sum += r 
+                g_sum += g 
+                b_sum += b 
+        r_val = round(abs(r_sum))
+        g_val = round(abs(g_sum))
+        b_val = round(abs(b_sum))
+        r_val = max(min(r_val,255),0)
+        g_val = max(min(g_val,255),0)
+        b_val = max(min(b_val,255),0)
+        return [r_val,g_val,b_val]
+
     def add(self, image, value):
         image = self.__processImage(self.__add, image, value)
         return image
@@ -204,7 +250,7 @@ class ImageConverter:
                 [-2,0,2],
                 [-1,0,1]
             ]
-        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
+        image = self.__processImageFiltering(self.__calculateMaskFilter, image, value, mask)
         return image    
     
     def highpassFilter(self, image, value):
@@ -213,16 +259,16 @@ class ImageConverter:
             [-1,9,-1],
             [-1,-1,-1]
         ]
-        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
+        image = self.__processImageFiltering(self.__calculateMaskFilter, image, value, mask)
         return image    
     
     def gaussFilter(self, image, value): #https://courses.cs.washington.edu/courses/cse455/09wi/Lects/lect2.pdf
-        mask = [
+        mask = np.array([
             [1,2,1],
             [2,4,2],
             [1,2,1]
-        ]
-        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
+        ]) * (1.0 / 16.0)
+        image = self.__processImageFiltering(self.__calculateMaskFilter, image, value, mask)
         return image
 
 class Form(QDialog):
@@ -230,12 +276,13 @@ class Form(QDialog):
         super(Form, self).__init__(parent)
         openBtn = QPushButton("Open file")
         openBtn.clicked.connect(self.__open)
-        self.converter = ImageConverter()
+        self.converter = ImageConverter(None)
         self.img = None
         self.layout = QFormLayout()
         self.layout.addRow(openBtn)
         self.image_label = QLabel(" ")
-        self.layout.addRow(self.image_label)
+        self.image_original_label = QLabel(" ")
+        self.layout.addRow(self.image_label , self.image_original_label)
         self.menu = QComboBox()
         self.menu.addItems(MODES)
         self.menu.currentIndexChanged.connect(self.__changeMode)
@@ -257,6 +304,11 @@ class Form(QDialog):
         self.img = QImage(filePath)
         self.__fixScale()
         self.__showImage()
+
+        self.original = QImage(filePath)
+        self.image_original_label.setPixmap(QPixmap.fromImage(self.original))
+        self.converter.setOriginalImage(self.original)
+        self.update()
 
     def __showImage(self):
         self.image_label.setPixmap(QPixmap.fromImage(self.img))
