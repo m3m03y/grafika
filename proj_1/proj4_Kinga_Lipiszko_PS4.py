@@ -1,16 +1,11 @@
 import sys
-import platform
 from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import *
 from datetime import datetime
 from PIL import Image
-import pathlib
 import numpy as np
-import re
-import webbrowser
 import statistics
-from scipy.signal import convolve2d as cv2d
 import math
 
 MODES = [
@@ -19,7 +14,7 @@ MODES = [
     "Multiplication",                       #2
     "Division",                             #3
     "Adjust brightness",                    #4
-    "Convert to greyscale (ratio)",         #5
+    "Convert to greyscale (ratio)",         #5-
     "Convert to greyscale (average)",       #6
     "Average/Mean filter",                  #7
     "Median filter",                        #8
@@ -256,6 +251,8 @@ class Form(QDialog):
         submitBtn = QPushButton("Submit")
         submitBtn.clicked.connect(self.__processImage)
         self.layout.addRow(submitBtn)
+        self.successLabel = QLabel(" ")
+        self.layout.addRow(self.successLabel)
         self.setLayout(self.layout)
 
     def __open(self):
@@ -280,12 +277,12 @@ class Form(QDialog):
         self.update()
 
     def __fixScale(self, image):
-        if (image.height() > 720):
-            image = image.scaledToHeight(720)
+        if (image.height() > 600):
+            image = image.scaledToHeight(600)
         elif (image.height() < 50):
             image = image.scaledToHeight(50)
-        if (image.width() > 1280):
-            image = image.scaledToWidth(1280)        
+        if (image.width() > 800):
+            image = image.scaledToWidth(800)        
         elif (image.width() < 50):
             image = image.scaledToWidth(50)
         return image
@@ -328,10 +325,13 @@ class Form(QDialog):
             self.img = self.converter.highpassFilter(self.img,val)
         elif (int(pos) == 12):
             self.img = self.converter.gaussFilter(self.img,val)
+        self.successLabel.setText("Done!")
         self.__fixScale(self.img)
         self.__showImage()
 
     def __changeMode(self):
+        self.successLabel.setText(" ")
+        self.update()
         pos = self.menu.currentIndex()
         if (pos >= 0) and (pos <= 3):
             self.__setMinMaxValues(MIN_VAL,MAX_VAL)
