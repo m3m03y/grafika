@@ -11,7 +11,7 @@ import re
 import webbrowser
 import statistics
 from scipy.signal import convolve2d as cv2d
-
+import math
 
 MODES = [
     "Addition",                             #0
@@ -50,11 +50,14 @@ class ImageConverter:
         return image
 
     def __processImageFiltering(self, func, image, val, mask):
+        if (mask is not None):
+            mask_range = math.floor(len(mask) / 2)
+        else: mask_range = 1
         for y in range (image .height()):
             for x in range (image .width()):
                 pix = image .pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if (x > 0) and (x < (image .width() -1)) and (y > 0) and (y < (image .height() - 1)):
+                if (x > 0) and (x < (image.width() - mask_range)) and (y > 0) and (y < (image.height() - mask_range)):
                     r, g, b = func([r, g, b], val, [x,y], image, mask)
                 image .setPixelColor(x,y, QColor(r,g,b))
         return image 
@@ -134,14 +137,15 @@ class ImageConverter:
         return [r_val,g_val,b_val]
 
     def __calculateAverageFilter(self, current, val, pos, image, mask):
+        mask_range = math.floor(len(mask) / 2)
         r_sum = 0
         g_sum = 0
         b_sum = 0
         # mask without calculated boundries https://inst.eecs.berkeley.edu/~cs194-26/fa20/Lectures/ImageProcessingFilteringII.pdf
-        for x in range(pos[0] - 1, pos[0] + 2): # +2 because not included ended position
-            for y in range(pos[1] - 1, pos[1] + 2):
-                idxX = x - (pos[0] - 1)
-                idxY = y - (pos[1] - 1)
+        for x in range(pos[0] - mask_range, pos[0] + (mask_range + 1)): # +2 because not included ended position
+            for y in range(pos[1] - mask_range, pos[1] + (mask_range + 1)):
+                idxX = x - (pos[0] - mask_range)
+                idxY = y - (pos[1] - mask_range)
                 maskVal = mask[idxX][idxY]
                 pix = self.original.pixel(x,y)
                 r,g,b = qRed(pix) * maskVal, qGreen(pix) * maskVal, qBlue(pix) * maskVal
