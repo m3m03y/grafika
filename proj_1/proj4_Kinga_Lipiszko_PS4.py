@@ -113,31 +113,6 @@ class ImageConverter:
         avg = round((current[0] + current[1] + current[2]) / 3)
         return [avg,avg,avg]
 
-    def __calculateAverageFilter(self, current, val, pos, image, mask):
-        count = 0
-        r_sum = 0
-        g_sum = 0
-        b_sum = 0
-        # Czym dopełniać maskę https://inst.eecs.berkeley.edu/~cs194-26/fa20/Lectures/ImageProcessingFilteringII.pdf
-        for x in range(pos[0] - 1, pos[0] + 2): # +2 because not included ended position
-            for y in range(pos[1] - 1, pos[1] + 2):
-                idxX = x - (pos[0] - 1)
-                idxY = y - (pos[1] - 1)
-                maskVal = mask[idxX][idxY]
-                pix = image.pixel(x,y)
-                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                r_sum += r * maskVal
-                g_sum += g * maskVal
-                b_sum += b * maskVal
-                count += 1
-        r_val = round(abs(r_sum)/count)
-        g_val = round(abs(g_sum)/count)
-        b_val = round(abs(b_sum)/count)
-        r_val = max(min(r_val,255),0)
-        g_val = max(min(g_val,255),0)
-        b_val = max(min(b_val,255),0)
-        return [r_val,g_val,b_val]
-
     def __calculateMedianFilter(self, current, val, pos, image, mask = None):
         r_arr = []
         g_arr = []
@@ -158,26 +133,11 @@ class ImageConverter:
         b_val = round(statistics.median(b_arr))
         return [r_val,g_val,b_val]
 
-    def __calculateMaskFilter(self, current, val, pos, image, mask):
-        # for x in range(pos[0] - 1, pos[0] + 2): # +2 because not included ended position
-        #     for y in range(pos[1] - 1, pos[1] + 2):
-        #         idxX = x - (pos[0] - 1)
-        #         idxY = y - (pos[1] - 1)
-        #         maskVal = mask[idxX][idxY]
-        #         pix = image.pixel(x,y)
-        #         r,g,b = qRed(pix) * maskVal, qGreen(pix) * maskVal, qBlue(pix) * maskVal
-        #         r = max(min(r,255),0)
-        #         g = max(min(g,255),0)
-        #         b = max(min(b,255),0)
-        #         image.setPixelColor(x,y, QColor(r,g,b))
-                
-        # pix = image.pixel(pos[0],pos[1])
-        # r, g, b = qRed(pix), qGreen(pix), qBlue(pix)
-        # return [r,g,b]
+    def __calculateAverageFilter(self, current, val, pos, image, mask):
         r_sum = 0
         g_sum = 0
         b_sum = 0
-        # Czym dopełniać maskę https://inst.eecs.berkeley.edu/~cs194-26/fa20/Lectures/ImageProcessingFilteringII.pdf
+        # mask without calculated boundries https://inst.eecs.berkeley.edu/~cs194-26/fa20/Lectures/ImageProcessingFilteringII.pdf
         for x in range(pos[0] - 1, pos[0] + 2): # +2 because not included ended position
             for y in range(pos[1] - 1, pos[1] + 2):
                 idxX = x - (pos[0] - 1)
@@ -226,9 +186,9 @@ class ImageConverter:
 
     def averageFilter(self, image, value):
         mask = [
-            [1,1,1],
-            [1,1,1],
-            [1,1,1]
+            [1/9,1/9,1/9],
+            [1/9,1/9,1/9],
+            [1/9,1/9,1/9]
         ]
         image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
         return image    
@@ -250,7 +210,7 @@ class ImageConverter:
                 [-2,0,2],
                 [-1,0,1]
             ]
-        image = self.__processImageFiltering(self.__calculateMaskFilter, image, value, mask)
+        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
         return image    
     
     def highpassFilter(self, image, value):
@@ -259,7 +219,7 @@ class ImageConverter:
             [-1,9,-1],
             [-1,-1,-1]
         ]
-        image = self.__processImageFiltering(self.__calculateMaskFilter, image, value, mask)
+        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
         return image    
     
     def gaussFilter(self, image, value): #https://courses.cs.washington.edu/courses/cse455/09wi/Lects/lect2.pdf
@@ -268,7 +228,7 @@ class ImageConverter:
             [2,4,2],
             [1,2,1]
         ]) * (1.0 / 16.0)
-        image = self.__processImageFiltering(self.__calculateMaskFilter, image, value, mask)
+        image = self.__processImageFiltering(self.__calculateAverageFilter, image, value, mask)
         return image
 
 class Form(QDialog):
@@ -302,10 +262,11 @@ class Form(QDialog):
             return False
 
         self.img = QImage(filePath)
-        self.__fixScale()
+        self.img = self.__fixScale(self.img)
         self.__showImage()
 
         self.original = QImage(filePath)
+        self.original = self.__fixScale(self.original)
         self.image_original_label.setPixmap(QPixmap.fromImage(self.original))
         self.converter.setOriginalImage(self.original)
         self.update()
@@ -314,15 +275,16 @@ class Form(QDialog):
         self.image_label.setPixmap(QPixmap.fromImage(self.img))
         self.update()
 
-    def __fixScale(self):
-        if (self.img.height() > 720):
-            self.img = self.img.scaledToHeight(720)
-        elif (self.img.height() < 50):
-            self.img = self.img.scaledToHeight(50)
-        if (self.img.width() > 1280):
-            self.img = self.img.scaledToWidth(1280)        
-        elif (self.img.width() < 50):
-            self.img = self.img.scaledToWidth(50)
+    def __fixScale(self, image):
+        if (image.height() > 720):
+            image = image.scaledToHeight(720)
+        elif (image.height() < 50):
+            image = image.scaledToHeight(50)
+        if (image.width() > 1280):
+            image = image.scaledToWidth(1280)        
+        elif (image.width() < 50):
+            image = image.scaledToWidth(50)
+        return image
 
     def __processImage(self):
         if (self.img == None):
@@ -362,7 +324,7 @@ class Form(QDialog):
             self.img = self.converter.highpassFilter(self.img,val)
         elif (int(pos) == 12):
             self.img = self.converter.gaussFilter(self.img,val)
-        self.__fixScale()
+        self.__fixScale(self.img)
         self.__showImage()
 
     def __changeMode(self):
