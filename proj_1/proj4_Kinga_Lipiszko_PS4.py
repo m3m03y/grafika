@@ -53,7 +53,7 @@ class ImageConverter:
             for x in range (image .width()):
                 pix = image .pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if (x > 0) and (x < (image.width() - mask_range)) and (y > 0) and (y < (image.height() - mask_range)):
+                if (x > (mask_range - 1)) and (x < (image.width() - mask_range)) and (y > (mask_range - 1)) and (y < (image.height() - mask_range)):
                     r, g, b = func([r, g, b], val, [x,y], image, mask)
                 image .setPixelColor(x,y, QColor(r,g,b))
         return image 
@@ -297,8 +297,8 @@ class Form(QDialog):
                 index = model.index(row, column)
                 try:
                     mask[row].append(float(model.data(index)))
-                except ValueError or TypeError or AttributeError: 
-                    self.__showErrorMessage("Mask values must be numbers", "Invalid value")
+                except TypeError: 
+                    # self.__showErrorMessage("Mask values must be numbers", "Invalid value")
                     return None
         return mask
 
@@ -363,6 +363,7 @@ class Form(QDialog):
         elif (int(pos) == 7):
             self.img = self.converter.averageFilter(self.img,val)
         elif (int(pos) == 8):
+            self.img = self.original
             self.img = self.converter.medianFilter(self.img,val)
         elif (int(pos) == 9):
             self.img = self.converter.sobelFilter(self.img,val, True)
@@ -373,8 +374,13 @@ class Form(QDialog):
         elif (int(pos) == 12):
             self.img = self.converter.gaussFilter(self.img,val)
         elif (int(pos) == 13):
+            if self.maskSizeInput.value() % 2 == 0:
+                self.__showErrorMessage("Mask size must be odd", "Invalid value")
+                return
             mask = self.__readMaskInput()
-            if (mask is None): return
+            if (mask is None): 
+                self.__showErrorMessage("Invalid mask", "Invalid value")
+                return
             print(mask)
             self.img = self.converter.customFilter(self.img,val,mask)
         self.successLabel.setText("Done!")
