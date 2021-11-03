@@ -363,7 +363,7 @@ class Form(QDialog):
         elif (int(pos) == 7):
             self.img = self.converter.averageFilter(self.img,val)
         elif (int(pos) == 8):
-            self.img = self.original
+            self.img = QPixmap.fromImage(self.original).toImage()
             self.img = self.converter.medianFilter(self.img,val)
         elif (int(pos) == 9):
             self.img = self.converter.sobelFilter(self.img,val, True)
