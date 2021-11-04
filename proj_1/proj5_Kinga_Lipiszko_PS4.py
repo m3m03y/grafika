@@ -7,7 +7,8 @@ from PySide6.QtCharts import *
 
 MODES = [
     "Extend histogram",         #0
-    "Equalization histogram"          #1
+    "Equalization histogram",          #1
+    "Binarization"          #2
     ]
 
 MIN_VAL = 0
@@ -86,6 +87,19 @@ class ImageConverter:
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image
 
+    def binarization(self, image, val):
+        for y in range (image.height()):
+            for x in range (image.width()):
+                pix = image.pixel(x,y)
+                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                avg = (r + g + b) / 3
+                if (avg > val):
+                    r,g,b = [255,255,255]
+                else:
+                    r,g,b = [0,0,0]
+                image.setPixelColor(x,y, QColor(r,g,b))
+        return image
+
 class Form(QDialog):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
@@ -107,8 +121,7 @@ class Form(QDialog):
         self.layout.addRow(self.menu)
 
 
-        # self.layout.addRow(self.__createInput())
-
+        self.layout.addRow(self.__createInput())
         submitBtn = QPushButton("Submit")
         submitBtn.clicked.connect(self.__processImage)
         self.layout.addRow(submitBtn)
@@ -160,14 +173,16 @@ class Form(QDialog):
             self.__showErrorMessage("No image selected", "Invalid image")
             return
         pos = self.menu.currentIndex()
-        # val = self.slider.value()
+        val = self.slider.value()
         # self.img = QPixmap.fromImage(self.original).toImage()
-        # print('Mode: {}, value: {}'.format(pos,val))
+        print('Mode: {}, value: {}'.format(pos,val))
 
         if (int(pos) == 0):
             self.img = self.converter.extendHistogram(QPixmap.fromImage(self.original).toImage())
-        if (int(pos) == 1):
-            self.img = self.converter.equalizationHistogram(QPixmap.fromImage(self.original).toImage())
+        elif (int(pos) == 1):
+            self.img = self.converter.equalizationHistogram(QPixmap.fromImage(self.original).toImage())        
+        elif (int(pos) == 2):
+            self.img = self.converter.binarization(QPixmap.fromImage(self.original).toImage(), val)
         self.successLabel.setText("Done!")
         self.__fixScale(self.img)
         self.proccessed_image_chart = self.__createBarChart(self.img)
@@ -176,15 +191,11 @@ class Form(QDialog):
     def __changeMode(self):
         self.successLabel.setText(" ")
         self.update()
-        # pos = self.menu.currentIndex()
-        # if (pos >= 0) and (pos <= 3):
-        #     self.__setMinMaxValues(MIN_VAL,MAX_VAL)
-        # elif (pos == 4):
-        #     self.__setMinMaxValues(-75,75)
-        # elif (pos >= 5):
-        #     self.__setMinMaxValues(0,0)
-        # if (pos == 13):
-        #     self.__initMaskInput()
+        pos = self.menu.currentIndex()
+        if (pos == 2):
+            self.__setMinMaxValues(MIN_VAL,MAX_VAL)
+        elif (pos >= 0) and (pos <= 1):
+            self.__setMinMaxValues(0,0)
 
     def __createBarChart(self, image):
         red = QBarSet("Red")
