@@ -14,19 +14,23 @@ MAX_VAL = 255
 MAX_COLOR_VALUE = 255
 
 class ImageConverter:
-    def __init__(self, originalImage):
-        self.original = originalImage
+    def __init__(self):
+        # self.original = originalImage
         self.red_channel = np.zeros(256, dtype = int)
         self.green_channel = np.zeros(256, dtype = int)
         self.blue_channel = np.zeros(256, dtype = int)
 
-    def setOriginalImage(self, originalImage):
-        self.original = originalImage
+    # def setOriginalImage(self, originalImage):
+    #     self.original = originalImage
 
-    def __readHistogram(self):
-        for y in range (self.original.height()):
-            for x in range (self.original.width()):
-                pix = self.original.pixel(x,y)
+    def __readHistogram(self, image):
+        self.red_channel = np.zeros(256, dtype = int)
+        self.green_channel = np.zeros(256, dtype = int)
+        self.blue_channel = np.zeros(256, dtype = int)
+
+        for y in range (image.height()):
+            for x in range (image.width()):
+                pix = image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
                 self.red_channel[r] += 1
                 self.green_channel[g] += 1
@@ -50,15 +54,8 @@ class ImageConverter:
             cumulative_sum[i] = cumulative_sum[i-1] + histogram[i] 
         return cumulative_sum
 
-    def __newHistogramValueMapping(self, cumulative_sum):
-        mapping = np.zeros(256, dtype=int)
-        size = len(cumulative_sum)
-        for i in range(size):
-            mapping[i] = max(0, round((size*cumulative_sum[i])/(self.original.width() * self.original.height()))-1)
-        return mapping
-
     def extendHistogram(self, image):
-        self.__readHistogram()
+        self.__readHistogram(image)
         rMin,rMax = self.__findHistogramMinMax(self.red_channel)
         gMin,gMax = self.__findHistogramMinMax(self.green_channel)
         bMin,bMax = self.__findHistogramMinMax(self.blue_channel)
@@ -73,20 +70,17 @@ class ImageConverter:
         return image
 
     def equalizationHistogram(self, image):
-        self.__readHistogram()
+        self.__readHistogram(image)
         r_cumulative_sum = self.__calculateHistogramCumulativeSum(self.red_channel)
         g_cumulative_sum = self.__calculateHistogramCumulativeSum(self.green_channel)
         b_cumulative_sum = self.__calculateHistogramCumulativeSum(self.blue_channel)
-        r_mapping = self.__newHistogramValueMapping(r_cumulative_sum)
-        g_mapping = self.__newHistogramValueMapping(g_cumulative_sum)
-        b_mapping = self.__newHistogramValueMapping(b_cumulative_sum)
         for y in range (image.height()):
             for x in range (image.width()):
                 pix = image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                r = r_mapping[r]
-                g = g_mapping[g]
-                b = b_mapping[b]
+                r = min(max(0, round((MAX_COLOR_VALUE*r_cumulative_sum[r])/(image.width() * image.height()))-1), MAX_COLOR_VALUE)
+                g = min(max(0, round((MAX_COLOR_VALUE*g_cumulative_sum[g])/(image.width() * image.height()))-1), MAX_COLOR_VALUE)
+                b = min(max(0, round((MAX_COLOR_VALUE*b_cumulative_sum[b])/(image.width() * image.height()))-1), MAX_COLOR_VALUE)
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image
 
@@ -95,7 +89,7 @@ class Form(QDialog):
         super(Form, self).__init__(parent)
         openBtn = QPushButton("Open file")
         openBtn.clicked.connect(self.__open)
-        self.converter = ImageConverter(None)
+        self.converter = ImageConverter()
         self.img = None
         self.layout = QFormLayout()
         self.layout.addRow(openBtn)
@@ -130,7 +124,6 @@ class Form(QDialog):
         self.original = QImage(filePath)
         self.original = self.__fixScale(self.original)
         self.image_original_label.setPixmap(QPixmap.fromImage(self.original))
-        self.converter.setOriginalImage(self.original)
         self.update()
 
     def __showImage(self):
@@ -156,13 +149,13 @@ class Form(QDialog):
             return
         pos = self.menu.currentIndex()
         val = self.slider.value()
-        self.img = QPixmap.fromImage(self.original).toImage()
+        # self.img = QPixmap.fromImage(self.original).toImage()
         print('Mode: {}, value: {}'.format(pos,val))
 
         if (int(pos) == 0):
-            self.img = self.converter.extendHistogram(self.img)
+            self.img = self.converter.extendHistogram(QPixmap.fromImage(self.original).toImage())
         if (int(pos) == 1):
-            self.img = self.converter.equalizationHistogram(self.img)
+            self.img = self.converter.equalizationHistogram(QPixmap.fromImage(self.original).toImage())
         self.successLabel.setText("Done!")
         self.__fixScale(self.img)
         self.__showImage()
