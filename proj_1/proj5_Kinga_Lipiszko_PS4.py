@@ -3,6 +3,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import *
 import numpy as np
+from PySide6.QtCharts import * 
 
 MODES = [
     "Extend histogram",         #0
@@ -23,7 +24,7 @@ class ImageConverter:
     # def setOriginalImage(self, originalImage):
     #     self.original = originalImage
 
-    def __readHistogram(self, image):
+    def readHistogram(self, image):
         self.red_channel = np.zeros(256, dtype = int)
         self.green_channel = np.zeros(256, dtype = int)
         self.blue_channel = np.zeros(256, dtype = int)
@@ -35,7 +36,8 @@ class ImageConverter:
                 self.red_channel[r] += 1
                 self.green_channel[g] += 1
                 self.blue_channel[b] += 1
-    
+        return [self.red_channel, self.green_channel, self.blue_channel]
+
     def __findHistogramMinMax(self, histogram):
         minIdx = -1
         maxIdx = 0
@@ -55,7 +57,7 @@ class ImageConverter:
         return cumulative_sum
 
     def extendHistogram(self, image):
-        self.__readHistogram(image)
+        self.readHistogram(image)
         rMin,rMax = self.__findHistogramMinMax(self.red_channel)
         gMin,gMax = self.__findHistogramMinMax(self.green_channel)
         bMin,bMax = self.__findHistogramMinMax(self.blue_channel)
@@ -70,7 +72,7 @@ class ImageConverter:
         return image
 
     def equalizationHistogram(self, image):
-        self.__readHistogram(image)
+        self.readHistogram(image)
         r_cumulative_sum = self.__calculateHistogramCumulativeSum(self.red_channel)
         g_cumulative_sum = self.__calculateHistogramCumulativeSum(self.green_channel)
         b_cumulative_sum = self.__calculateHistogramCumulativeSum(self.blue_channel)
@@ -96,11 +98,16 @@ class Form(QDialog):
         self.image_label = QLabel(" ")
         self.image_original_label = QLabel(" ")
         self.layout.addRow(self.image_label , self.image_original_label)
+        # self.proccessed_image_chart = QChartView()
+        # self.original_image_chart = QChartView()
+        # self.layout.addRow(self.proccessed_image_chart, self.original_image_chart)
         self.menu = QComboBox()
         self.menu.addItems(MODES)
         self.menu.currentIndexChanged.connect(self.__changeMode)
         self.layout.addRow(self.menu)
-        self.layout.addRow(self.__createInput())
+
+
+        # self.layout.addRow(self.__createInput())
 
         submitBtn = QPushButton("Submit")
         submitBtn.clicked.connect(self.__processImage)
@@ -124,6 +131,11 @@ class Form(QDialog):
         self.original = QImage(filePath)
         self.original = self.__fixScale(self.original)
         self.image_original_label.setPixmap(QPixmap.fromImage(self.original))
+
+        # self.proccessed_image_chart = self.__createBarChart(self.img)
+        # self.original_image_chart = self.__createBarChart(self.original)
+        # self.layout.addRow(self.proccessed_image_chart, self.original_image_chart)
+
         self.update()
 
     def __showImage(self):
@@ -148,9 +160,9 @@ class Form(QDialog):
             self.__showErrorMessage("No image selected", "Invalid image")
             return
         pos = self.menu.currentIndex()
-        val = self.slider.value()
+        # val = self.slider.value()
         # self.img = QPixmap.fromImage(self.original).toImage()
-        print('Mode: {}, value: {}'.format(pos,val))
+        # print('Mode: {}, value: {}'.format(pos,val))
 
         if (int(pos) == 0):
             self.img = self.converter.extendHistogram(QPixmap.fromImage(self.original).toImage())
@@ -158,21 +170,61 @@ class Form(QDialog):
             self.img = self.converter.equalizationHistogram(QPixmap.fromImage(self.original).toImage())
         self.successLabel.setText("Done!")
         self.__fixScale(self.img)
+        self.proccessed_image_chart = self.__createBarChart(self.img)
         self.__showImage()
 
     def __changeMode(self):
         self.successLabel.setText(" ")
         self.update()
-        pos = self.menu.currentIndex()
-        if (pos >= 0) and (pos <= 3):
-            self.__setMinMaxValues(MIN_VAL,MAX_VAL)
-        elif (pos == 4):
-            self.__setMinMaxValues(-75,75)
-        elif (pos >= 5):
-            self.__setMinMaxValues(0,0)
-        if (pos == 13):
-            self.__initMaskInput()
+        # pos = self.menu.currentIndex()
+        # if (pos >= 0) and (pos <= 3):
+        #     self.__setMinMaxValues(MIN_VAL,MAX_VAL)
+        # elif (pos == 4):
+        #     self.__setMinMaxValues(-75,75)
+        # elif (pos >= 5):
+        #     self.__setMinMaxValues(0,0)
+        # if (pos == 13):
+        #     self.__initMaskInput()
 
+    def __createBarChart(self, image):
+        red = QBarSet("Red")
+        green = QBarSet("Green")
+        blue = QBarSet("Blue")
+
+        r,g,b = self.converter.readHistogram(image)
+        # for i in range(len(r)):
+        #     red.append(*r)
+        #     green.append(g[i])
+        #     blue.append(b[i])
+        red.append([*r])
+        green.append([*g])
+        blue.append([*b])
+
+
+        bar_series = QBarSeries()
+        bar_series.append(red)
+        bar_series.append(green)
+        bar_series.append(blue)
+
+        chart = QChart()
+        chart.addSeries(bar_series)
+        chart.setTitle("Histogram")
+
+        # axis_x = QBarCategoryAxis()
+        # chart.setAxisX(axis_x, bar_series)
+        # axis_x.setRange(0, 255)
+
+        # axis_y = QValueAxis()
+        # chart.setAxisY(axis_y, bar_series)
+        # axis_y.setRange(0, (image.width() * image.height()))
+
+        # chart.legend().setVisible(True)
+        # chart.legend().setAlignment(Qt.AlignBottom)
+
+        chart_view = QChartView(chart)
+        chart_view.setRenderHint(QPainter.Antialiasing)
+
+        return chart_view
 
     def __setMinMaxValues(self, minVal, maxVal):
         self.__setSliderMinMaxValues(minVal, maxVal)
