@@ -58,6 +58,7 @@ class ImageConverter:
             if (current >= count ): break
             idx = i
             current += self.gray_channel[i]
+        print('Threshold: {}'.format(idx))
         return idx    
     
     def __findMean(self, image):
@@ -115,7 +116,7 @@ class ImageConverter:
             for x in range (image.width()):
                 pix = image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                avg = (r + g + b) / 3
+                avg = round((r + g + b) / 3)
                 if (avg > val):
                     r,g,b = [255,255,255]
                 else:
