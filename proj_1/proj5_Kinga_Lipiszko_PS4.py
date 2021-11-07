@@ -6,9 +6,11 @@ import numpy as np
 from PySide6.QtCharts import * 
 
 MODES = [
-    "Extend histogram",         #0
-    "Equalization histogram",          #1
-    "Binarization"          #2
+    "Extend histogram",                 #0
+    "Equalization histogram",           #1
+    "Binarization",                     #2
+    "Percent Black Selection",          #3
+    "Mean Iterative Selection"          #4
     ]
 
 MIN_VAL = 0
@@ -17,26 +19,26 @@ MAX_COLOR_VALUE = 255
 
 class ImageConverter:
     def __init__(self):
-        # self.original = originalImage
         self.red_channel = np.zeros(256, dtype = int)
         self.green_channel = np.zeros(256, dtype = int)
         self.blue_channel = np.zeros(256, dtype = int)
+        self.gray_channel = np.zeros(256, dtype = int)
 
-    # def setOriginalImage(self, originalImage):
-    #     self.original = originalImage
-
-    def readHistogram(self, image):
+    def __readHistogram(self, image):
         self.red_channel = np.zeros(256, dtype = int)
         self.green_channel = np.zeros(256, dtype = int)
         self.blue_channel = np.zeros(256, dtype = int)
+        self.gray_channel = np.zeros(256, dtype = int)
 
         for y in range (image.height()):
             for x in range (image.width()):
                 pix = image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                avg = round((r + g + b) / 3)
                 self.red_channel[r] += 1
                 self.green_channel[g] += 1
                 self.blue_channel[b] += 1
+                self.gray_channel[avg] += 1
         return [self.red_channel, self.green_channel, self.blue_channel]
 
     def __findHistogramMinMax(self, histogram):
@@ -48,6 +50,27 @@ class ImageConverter:
                 if (minIdx < 0): minIdx = i
         return [minIdx, maxIdx]
 
+    def __findThreshold(self, image, percentage):
+        count = (image.width() * image.height()) * (percentage / 100)
+        current = 0
+        idx = 0
+        for i in range(len(self.gray_channel)):
+            if (current >= count ): break
+            idx = i
+            current += self.gray_channel[i]
+        return idx    
+    
+    def __findMean(self, image):
+        sum_colors = 0
+        count = 0
+        for i in range(len(self.gray_channel)):
+            count += self.gray_channel[i]
+            sum_colors += i * self.gray_channel[i]
+
+        avg = round(sum_colors / count)
+        print('Average: {}'.format(avg))
+        return avg
+
     def __calculateHistogramCumulativeSum(self, histogram):
         cumulative_sum = np.zeros(256, dtype=int)
         for i in range(len(histogram)):
@@ -58,7 +81,7 @@ class ImageConverter:
         return cumulative_sum
 
     def extendHistogram(self, image):
-        self.readHistogram(image)
+        self.__readHistogram(image)
         rMin,rMax = self.__findHistogramMinMax(self.red_channel)
         gMin,gMax = self.__findHistogramMinMax(self.green_channel)
         bMin,bMax = self.__findHistogramMinMax(self.blue_channel)
@@ -73,7 +96,7 @@ class ImageConverter:
         return image
 
     def equalizationHistogram(self, image):
-        self.readHistogram(image)
+        self.__readHistogram(image)
         r_cumulative_sum = self.__calculateHistogramCumulativeSum(self.red_channel)
         g_cumulative_sum = self.__calculateHistogramCumulativeSum(self.green_channel)
         b_cumulative_sum = self.__calculateHistogramCumulativeSum(self.blue_channel)
@@ -98,7 +121,17 @@ class ImageConverter:
                 else:
                     r,g,b = [0,0,0]
                 image.setPixelColor(x,y, QColor(r,g,b))
-        return image
+        return image    
+    
+    def percentBlackSelectionBinarization(self, image, percentage):
+        self.__readHistogram(image)
+        val = self.__findThreshold(image,percentage)
+        return self.binarization(image, val)    
+        
+    def meanIterativeSelectionBinarization(self, image):
+        self.__readHistogram(image)
+        val = self.__findMean(image)
+        return self.binarization(image, val)
 
 class Form(QDialog):
     def __init__(self, parent=None):
@@ -182,10 +215,14 @@ class Form(QDialog):
         elif (int(pos) == 1):
             self.img = self.converter.equalizationHistogram(QPixmap.fromImage(self.original).toImage())        
         elif (int(pos) == 2):
-            self.img = self.converter.binarization(QPixmap.fromImage(self.original).toImage(), val)
+            self.img = self.converter.binarization(QPixmap.fromImage(self.original).toImage(), val)        
+        elif (int(pos) == 3):
+            self.img = self.converter.percentBlackSelectionBinarization(QPixmap.fromImage(self.original).toImage(), val)        
+        elif (int(pos) == 4):
+            self.img = self.converter.meanIterativeSelectionBinarization(QPixmap.fromImage(self.original).toImage())
         self.successLabel.setText("Done!")
         self.__fixScale(self.img)
-        self.proccessed_image_chart = self.__createBarChart(self.img)
+        # self.proccessed_image_chart = self.__createBarChart(self.img)
         self.__showImage()
 
     def __changeMode(self):
@@ -194,48 +231,50 @@ class Form(QDialog):
         pos = self.menu.currentIndex()
         if (pos == 2):
             self.__setMinMaxValues(MIN_VAL,MAX_VAL)
-        elif (pos >= 0) and (pos <= 1):
+        elif (pos == 0) or (pos == 1) or (pos == 4):
             self.__setMinMaxValues(0,0)
+        elif (pos == 3):
+            self.__setMinMaxValues(0, 100)
 
-    def __createBarChart(self, image):
-        red = QBarSet("Red")
-        green = QBarSet("Green")
-        blue = QBarSet("Blue")
+    # def __createBarChart(self, image):
+    #     red = QBarSet("Red")
+    #     green = QBarSet("Green")
+    #     blue = QBarSet("Blue")
 
-        r,g,b = self.converter.readHistogram(image)
-        # for i in range(len(r)):
-        #     red.append(*r)
-        #     green.append(g[i])
-        #     blue.append(b[i])
-        red.append([*r])
-        green.append([*g])
-        blue.append([*b])
+    #     r,g,b = self.converter.readHistogram(image)
+    #     # for i in range(len(r)):
+    #     #     red.append(*r)
+    #     #     green.append(g[i])
+    #     #     blue.append(b[i])
+    #     red.append([*r])
+    #     green.append([*g])
+    #     blue.append([*b])
 
 
-        bar_series = QBarSeries()
-        bar_series.append(red)
-        bar_series.append(green)
-        bar_series.append(blue)
+    #     bar_series = QBarSeries()
+    #     bar_series.append(red)
+    #     bar_series.append(green)
+    #     bar_series.append(blue)
 
-        chart = QChart()
-        chart.addSeries(bar_series)
-        chart.setTitle("Histogram")
+    #     chart = QChart()
+    #     chart.addSeries(bar_series)
+    #     chart.setTitle("Histogram")
 
-        # axis_x = QBarCategoryAxis()
-        # chart.setAxisX(axis_x, bar_series)
-        # axis_x.setRange(0, 255)
+    #     # axis_x = QBarCategoryAxis()
+    #     # chart.setAxisX(axis_x, bar_series)
+    #     # axis_x.setRange(0, 255)
 
-        # axis_y = QValueAxis()
-        # chart.setAxisY(axis_y, bar_series)
-        # axis_y.setRange(0, (image.width() * image.height()))
+    #     # axis_y = QValueAxis()
+    #     # chart.setAxisY(axis_y, bar_series)
+    #     # axis_y.setRange(0, (image.width() * image.height()))
 
-        # chart.legend().setVisible(True)
-        # chart.legend().setAlignment(Qt.AlignBottom)
+    #     # chart.legend().setVisible(True)
+    #     # chart.legend().setAlignment(Qt.AlignBottom)
 
-        chart_view = QChartView(chart)
-        chart_view.setRenderHint(QPainter.Antialiasing)
+    #     chart_view = QChartView(chart)
+    #     chart_view.setRenderHint(QPainter.Antialiasing)
 
-        return chart_view
+    #     return chart_view
 
     def __setMinMaxValues(self, minVal, maxVal):
         self.__setSliderMinMaxValues(minVal, maxVal)
@@ -272,7 +311,7 @@ class Form(QDialog):
         self.spinBox = QSpinBox()
         self.slider.valueChanged.connect(self.__sliderAction)
         self.spinBox.valueChanged.connect(self.__spinBoxAction)
-        self.__setMinMaxValues(MIN_VAL,MAX_VAL)
+        self.__setMinMaxValues(0,0)
         layout.addWidget(self.slider)
         layout.addWidget(self.spinBox)
         return layout
