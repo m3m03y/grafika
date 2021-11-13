@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.points = []
-
+        self.isEditMode = False
         self.setAutoFillBackground(True)
 
         palette = self.palette()
@@ -93,14 +93,18 @@ class MainWindow(QMainWindow):
         self.curveDegreeInput.valueChanged.connect(self.__updateToolbox)
         self.table = QTableView()
         self.model = QStandardItemModel(1,2,self)
+        self.model.dataChanged.connect(self.__tableValueChanged)
         self.table.setModel(self.model)
         self.toolbox_layout.addWidget(QLabel("Degree: "))
         self.toolbox_layout.addWidget(self.curveDegreeInput)
         self.toolbox_layout.addWidget(self.table)
 
         submitBtn = QPushButton("Submit")
-        submitBtn.clicked.connect(self.__onSubmitClicked)
+        submitBtn.clicked.connect(self.__onSubmitClicked)        
+        editBtn = QPushButton("Edit")
+        editBtn.clicked.connect(self.__onEditClicked)
         self.toolbox_layout.addWidget(submitBtn)
+        self.toolbox_layout.addWidget(editBtn)
         self.toolbox.setLayout(self.toolbox_layout)
 
     def __readTableInput(self):
@@ -108,6 +112,7 @@ class MainWindow(QMainWindow):
         model = self.table.model()
         if (model.columnCount() != 2):
             print("Invalid column number")
+            return
 
         for row in range(model.rowCount()):
             table_data.append([])
@@ -117,20 +122,43 @@ class MainWindow(QMainWindow):
                     val = str(model.data(index)).replace(',','.')
                     table_data[row].append(float(val))
                 except TypeError: 
-                    # self.__showErrorMessage("Mask values must be numbers", "Invalid value")
                     return None
         return table_data
+    
+    def __tableValueChanged(self):
+        if (self.isEditMode):
+            print("Data set changed!")
+            self.__updatePlot()
+
+    def __showErrorMessage(self, msg, title):
+        QMessageBox.critical(
+            self,
+            title,
+            msg,
+            buttons=QMessageBox.Ignore,
+            defaultButton=QMessageBox.Ignore,
+        )
 
     def __onSubmitClicked(self):
-        self.points = self.__readTableInput()
-        # self.points = [(0, 0), (5, 5), (5, 0), (2.5, -2.5)]
+        self.isEditMode = False
+        self.__updatePlot()
 
-        print(self.points)
+    def __onEditClicked(self):
+        self.isEditMode = True
+
+    def __updatePlot(self):
+        self.points = self.__readTableInput()
+        if (self.points == None):
+            self.__showErrorMessage("Points coordinates must be numbers", "Invalid value")
+            return
+        print('Points: {}'.format(self.points))
         self.drawCurve()
 
     def __updateToolbox(self):
+        self.isEditMode = False
         size = self.curveDegreeInput.value()
         self.model = QStandardItemModel(size,2,self)
+        self.model.dataChanged.connect(self.__tableValueChanged)
         self.table.setModel(self.model)
         self.update()
 
