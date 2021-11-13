@@ -11,6 +11,37 @@ from scipy.special import comb
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from matplotlib import pyplot as plt
+from matplotlib.backend_bases import MouseButton
+
+
+class Toolbar(QToolBar):
+    def __init__(self, btnClick):
+        super(Toolbar, self).__init__()
+        self.setAutoFillBackground(True)
+
+        palette = self.palette()
+        palette.setColor(QPalette.Window, Qt.black)
+        self.setPalette(palette)
+        self.buttons = {
+            "Mouse" : "Create with mouse",
+            "Table" : "Create in table",
+            "Edit mouse" : "Edit with mouse",
+            "Edit table" : "Edit in table",
+            "Clear" : "Clear plot"
+        }
+        self.createToolbar(btnClick)
+
+    def createToolbar(self, btnClick):
+        for btn in self.buttons:
+            button = QToolButton()
+            button.setText(btn)
+            button.setStatusTip(self.buttons[btn])
+            button.setCheckable(True)
+            button.setAutoExclusive(True)
+            button.clicked.connect(btnClick)
+            self.addWidget(button)
+
 
 class BezierCurve:
     def __calculate_value(self,t, idx):
@@ -39,21 +70,51 @@ class BezierCurve:
         return (x_arr,y_arr)
 
 class MplCanvas(FigureCanvasQTAgg):
-
     def __init__(self, parent=None, width=5, height=4, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = fig.add_subplot(111)
-        super(MplCanvas, self).__init__(fig)
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        self.parent = parent
+        self.axes = self.fig.add_subplot(111)
+        self.fig.canvas.callbacks.connect('button_press_event', self.on_click)
+        self.points = []
+        super(MplCanvas, self).__init__(self.fig)
 
+    def on_click(self,event):
+        if event.button is MouseButton.LEFT:
+            print (event.xdata, event.ydata)    
+            self.parent.addPoint(event.xdata, event.ydata)
+
+    def drawCurve(self, points):
+        degree = len(points) - 1
+        bc = BezierCurve()
+        to_plot_x, to_plot_y = bc.bezier_curve_points_to_draw(points)
+        if len(points) <= 0:
+            # x = [0.0,1.0,2.0,3.0,4.0,5.0]
+            # y = [0.0,1.0,2.0,3.0,4.0,5.0]
+            # self.axes.plot(
+            #     x,
+            #     y,
+            #     color="white"
+            # )
+            return
+        x = [i[0] for i in points]
+        y = [i[1] for i in points]
+            
+        self.axes.plot(
+            to_plot_x,
+            to_plot_y,
+            color="blue",
+            label="Curve of Degree " + str(degree),
+        )
+        
+        self.axes.scatter(x, y, color="red", label="Control Points")
 
 class MainWindow(QMainWindow):
-
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.points = []
         self.isEditMode = False
         self.setAutoFillBackground(True)
-
+        self.mode = -1
         palette = self.palette()
         palette.setColor(QPalette.Window, Qt.white)
         self.setPalette(palette)
@@ -64,14 +125,13 @@ class MainWindow(QMainWindow):
         self.width=1280
         self.height=720
         self.initUI()
-        # self.setCentralWidget(self.drawCurve())
-        # self.show()
 
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left,self.top,self.width,self.height)
         self.layout = QGridLayout()
         self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
+        self.addToolBar(Toolbar(self.onMyToolBarButtonClick))
         self.initToolbox()
         self.plotWidget = QWidget()
         self.plot_layout = QHBoxLayout()
@@ -101,11 +161,26 @@ class MainWindow(QMainWindow):
 
         submitBtn = QPushButton("Submit")
         submitBtn.clicked.connect(self.__onSubmitClicked)        
-        editBtn = QPushButton("Edit")
-        editBtn.clicked.connect(self.__onEditClicked)
         self.toolbox_layout.addWidget(submitBtn)
-        self.toolbox_layout.addWidget(editBtn)
         self.toolbox.setLayout(self.toolbox_layout)
+
+    def onMyToolBarButtonClick(self, s):
+        if (self.sender().text() == "Mouse"):
+            self.__clearCurve()
+            self.points = []
+            self.mode = 0
+        elif (self.sender().text() == "Table"):
+            self.__clearCurve()
+            self.points = []
+            self.mode = 1
+        elif (self.sender().text() == "Edit mouse"):
+            self.mode = 2
+        elif (self.sender().text() == "Edit table"):
+            self.mode = 3
+        elif (self.sender().text() == "Clear"):
+            self.mode = 4
+            self.__clearCurve()
+
 
     def __readTableInput(self):
         table_data = []
@@ -126,7 +201,7 @@ class MainWindow(QMainWindow):
         return table_data
     
     def __tableValueChanged(self):
-        if (self.isEditMode):
+        if (self.mode == 3):
             print("Data set changed!")
             self.__updatePlot()
 
@@ -140,11 +215,8 @@ class MainWindow(QMainWindow):
         )
 
     def __onSubmitClicked(self):
-        self.isEditMode = False
-        self.__updatePlot()
-
-    def __onEditClicked(self):
-        self.isEditMode = True
+        if (self.mode == 1):
+            self.__updatePlot()
 
     def __updatePlot(self):
         self.points = self.__readTableInput()
@@ -164,30 +236,27 @@ class MainWindow(QMainWindow):
 
     def drawCurve(self):
         self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
-
-        degree = len(self.points) - 1
-        bc = BezierCurve()
-        to_plot_x, to_plot_y = bc.bezier_curve_points_to_draw(self.points)
-
-        x = [i[0] for i in self.points]
-        y = [i[1] for i in self.points]
-
-        self.bezier_curve.axes.plot(
-            to_plot_x,
-            to_plot_y,
-            color="blue",
-            label="Curve of Degree " + str(degree),
-        )
-        
-        self.bezier_curve.axes.scatter(x, y, color="red", label="Control Points")
-
+        self.bezier_curve.drawCurve(self.points)
+        self.clearAndUpdatePlot()
+    
+    def clearAndUpdatePlot(self):
         self.plot_layout.itemAt(0).widget().deleteLater()
         self.plot_layout.addWidget(self.bezier_curve)
         self.plotWidget.update()
-        self.update()
+        self.update()    
+        
+    def addPoint(self,x,y):
+        if (self.mode == 0):
+            self.points.append([x,y])
+            self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
+            self.bezier_curve.drawCurve(self.points)
+            self.clearAndUpdatePlot()
 
+    def __clearCurve(self):
+        self.points = []
+        self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
+        self.clearAndUpdatePlot()
 if __name__=='__main__':
         app=QApplication(sys.argv)
         window=MainWindow()
-        # window.show()
         app.exec_()
