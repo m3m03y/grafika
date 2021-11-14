@@ -1,5 +1,5 @@
 import sys
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+# from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 import matplotlib
 
 matplotlib.use('Qt5Agg')
@@ -80,7 +80,7 @@ class MplCanvas(FigureCanvasQTAgg):
 
     def on_click(self,event):
         if event.button is MouseButton.LEFT:
-            print (event.xdata, event.ydata)    
+            # print (event.xdata, event.ydata)    
             self.parent.addPoint(event.xdata, event.ydata)
 
     def drawCurve(self, points):
@@ -88,13 +88,6 @@ class MplCanvas(FigureCanvasQTAgg):
         bc = BezierCurve()
         to_plot_x, to_plot_y = bc.bezier_curve_points_to_draw(points)
         if len(points) <= 0:
-            # x = [0.0,1.0,2.0,3.0,4.0,5.0]
-            # y = [0.0,1.0,2.0,3.0,4.0,5.0]
-            # self.axes.plot(
-            #     x,
-            #     y,
-            #     color="white"
-            # )
             return
         x = [i[0] for i in points]
         y = [i[1] for i in points]
@@ -167,6 +160,7 @@ class MainWindow(QMainWindow):
     def onMyToolBarButtonClick(self, s):
         if (self.sender().text() == "Mouse"):
             self.__clearCurve()
+            self.__resetTable()
             self.points = []
             self.mode = 0
         elif (self.sender().text() == "Table"):
@@ -174,11 +168,13 @@ class MainWindow(QMainWindow):
             self.points = []
             self.mode = 1
         elif (self.sender().text() == "Edit mouse"):
+            self.__resetTable()
             self.mode = 2
         elif (self.sender().text() == "Edit table"):
             self.mode = 3
         elif (self.sender().text() == "Clear"):
             self.mode = 4
+            self.__resetTable()
             self.__clearCurve()
 
 
@@ -197,6 +193,8 @@ class MainWindow(QMainWindow):
                     val = str(model.data(index)).replace(',','.')
                     table_data[row].append(float(val))
                 except TypeError: 
+                    return None
+                except ValueError:
                     return None
         return table_data
     
@@ -218,6 +216,11 @@ class MainWindow(QMainWindow):
         if (self.mode == 1):
             self.__updatePlot()
 
+    def __clearCurve(self):
+        self.points = []
+        self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
+        self.clearAndUpdatePlot()
+
     def __updatePlot(self):
         self.points = self.__readTableInput()
         if (self.points == None):
@@ -230,6 +233,13 @@ class MainWindow(QMainWindow):
         self.isEditMode = False
         size = self.curveDegreeInput.value()
         self.model = QStandardItemModel(size,2,self)
+        self.model.dataChanged.connect(self.__tableValueChanged)
+        self.table.setModel(self.model)
+        self.update()
+
+    def __resetTable(self):
+        self.curveDegreeInput.setValue(1)
+        self.model = QStandardItemModel(1,2,self)
         self.model.dataChanged.connect(self.__tableValueChanged)
         self.table.setModel(self.model)
         self.update()
@@ -252,10 +262,6 @@ class MainWindow(QMainWindow):
             self.bezier_curve.drawCurve(self.points)
             self.clearAndUpdatePlot()
 
-    def __clearCurve(self):
-        self.points = []
-        self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
-        self.clearAndUpdatePlot()
 if __name__=='__main__':
         app=QApplication(sys.argv)
         window=MainWindow()
