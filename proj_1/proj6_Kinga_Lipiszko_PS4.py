@@ -16,6 +16,8 @@ from matplotlib.backend_bases import MouseButton
 
 selectedIdx = [None]
 isEditMode = [False]
+CANVAS_WIDTH = 10
+CANVAS_HEIGHT = 10
 class Toolbar(QToolBar):
     def __init__(self, btnClick):
         super(Toolbar, self).__init__()
@@ -87,8 +89,7 @@ class MplCanvas(FigureCanvasQTAgg):
         return 0
     
     def move_obj(self, event):
-        print("Move over diagram")
-        if (isEditMode[0]):
+        if (isEditMode[0]) and (selectedIdx[0] != None) and (event.xdata != None) and (event.ydata != None):
             self.parent.updatePoint(selectedIdx[0],event.xdata, event.ydata)
 
     def on_click(self,event):
@@ -97,8 +98,11 @@ class MplCanvas(FigureCanvasQTAgg):
                 if (selectedIdx[0] == None):
                     selectedIdx[0] = self.__findIndex([event.xdata, event.ydata])
                     self.parent.drawCurve()
-                else: self.parent.updatePoint(selectedIdx[0],event.xdata, event.ydata)
-            else:   self.parent.addPoint(event.xdata, event.ydata)
+                elif (selectedIdx[0] != None):
+                    selectedIdx[0] = None
+                    self.parent.drawCurve() 
+            elif (event.xdata != None) and (event.ydata != None):
+                self.parent.addPoint(event.xdata, event.ydata)
         elif event.button is MouseButton.RIGHT:
             if (isEditMode[0]):
                 selectedIdx[0] = None
@@ -111,8 +115,8 @@ class MplCanvas(FigureCanvasQTAgg):
         degree = len(points) - 1
         bc = BezierCurve()            
         to_plot_x, to_plot_y = bc.bezier_curve_points_to_draw(points)
-        self.axes.set_xlim(0,10)
-        self.axes.set_ylim(0,10)
+        self.axes.set_xlim(0,CANVAS_WIDTH)
+        self.axes.set_ylim(0,CANVAS_HEIGHT)
         if (points == None) or (len(points) <= 0):
             return
         x = [i[0] for i in points]
