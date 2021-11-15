@@ -74,7 +74,7 @@ class MplCanvas(FigureCanvasQTAgg):
         self.parent = parent
         self.axes = self.fig.add_subplot(111)
         self.fig.canvas.callbacks.connect('button_press_event', self.on_click)
-        self.fig.canvas.callbacks.connect('button_move_event', self.move_obj)
+        self.fig.canvas.callbacks.connect('motion_notify_event', self.move_obj)
         super(MplCanvas, self).__init__(self.fig)
 
     def __findIndex(self,pos):
@@ -93,7 +93,6 @@ class MplCanvas(FigureCanvasQTAgg):
 
     def on_click(self,event):
         if event.button is MouseButton.LEFT:
-            # print (event.xdata, event.ydata)    
             if (isEditMode[0]):
                 if (selectedIdx[0] == None):
                     selectedIdx[0] = self.__findIndex([event.xdata, event.ydata])
