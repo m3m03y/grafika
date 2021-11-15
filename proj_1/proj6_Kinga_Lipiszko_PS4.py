@@ -21,7 +21,7 @@ class Toolbar(QToolBar):
         self.setAutoFillBackground(True)
 
         palette = self.palette()
-        palette.setColor(QPalette.Window, Qt.black)
+        palette.setColor(QPalette.Window, Qt.gray)
         self.setPalette(palette)
         self.buttons = {
             "Mouse" : "Create with mouse",
@@ -85,8 +85,10 @@ class MplCanvas(FigureCanvasQTAgg):
 
     def drawCurve(self, points):
         degree = len(points) - 1
-        bc = BezierCurve()
+        bc = BezierCurve()            
         to_plot_x, to_plot_y = bc.bezier_curve_points_to_draw(points)
+        self.axes.set_xlim(0,10)
+        self.axes.set_ylim(0,10)
         if len(points) <= 0:
             return
         x = [i[0] for i in points]
@@ -100,6 +102,7 @@ class MplCanvas(FigureCanvasQTAgg):
         )
         
         self.axes.scatter(x, y, color="red", label="Control Points")
+        
 
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -134,6 +137,7 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.toolbox,0,6,1,1)
         widget = QWidget()
         widget.setLayout(self.layout)
+        self.drawCurve()
         self.setCentralWidget(widget)
         self.show()
 
@@ -219,6 +223,7 @@ class MainWindow(QMainWindow):
     def __clearCurve(self):
         self.points = []
         self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
+        self.drawCurve()
         self.clearAndUpdatePlot()
 
     def __updatePlot(self):
@@ -229,6 +234,19 @@ class MainWindow(QMainWindow):
         print('Points: {}'.format(self.points))
         self.drawCurve()
 
+    def __updateTable(self):
+        size = self.curveDegreeInput.value()
+        self.model = QStandardItemModel(size,2,self)
+        for i in range(len(self.points)):
+            self.model.insertRow(i)
+            for j in range(len(self.points[i])):
+                val = self.points[i][j]
+                self.model.setData(self.model.index(i,j), float(val))
+        self.model.removeRow(self.model.rowCount() -1)
+        self.model.dataChanged.connect(self.__tableValueChanged)
+        self.table.setModel(self.model)
+        self.update()
+        
     def __updateToolbox(self):
         self.isEditMode = False
         size = self.curveDegreeInput.value()
@@ -261,6 +279,7 @@ class MainWindow(QMainWindow):
             self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
             self.bezier_curve.drawCurve(self.points)
             self.clearAndUpdatePlot()
+            self.__updateTable()
 
 if __name__=='__main__':
         app=QApplication(sys.argv)
