@@ -14,12 +14,12 @@ from matplotlib.figure import Figure
 from matplotlib import pyplot as plt
 from matplotlib.backend_bases import MouseButton
 
-
+selectedIdx = [None]
+isEditMode = [False]
 class Toolbar(QToolBar):
     def __init__(self, btnClick):
         super(Toolbar, self).__init__()
         self.setAutoFillBackground(True)
-
         palette = self.palette()
         palette.setColor(QPalette.Window, Qt.gray)
         self.setPalette(palette)
@@ -68,28 +68,53 @@ class BezierCurve:
             y_arr.append(val[1])
             t += step
         return (x_arr,y_arr)
-
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.parent = parent
         self.axes = self.fig.add_subplot(111)
         self.fig.canvas.callbacks.connect('button_press_event', self.on_click)
-        self.points = []
+        self.fig.canvas.callbacks.connect('button_move_event', self.move_obj)
         super(MplCanvas, self).__init__(self.fig)
+
+    def __findIndex(self,pos):
+        points = self.parent.points
+        for i in range(len(points)):
+            print(points)
+            if (abs(points[i][0] - pos[0])<=0.1) and (abs(points[i][1] - pos[1])<=0.1):
+                print(i)
+                return i
+        return 0
+    
+    def move_obj(self, event):
+        print("Move over diagram")
+        if (isEditMode[0]):
+            self.parent.updatePoint(selectedIdx[0],event.xdata, event.ydata)
 
     def on_click(self,event):
         if event.button is MouseButton.LEFT:
             # print (event.xdata, event.ydata)    
-            self.parent.addPoint(event.xdata, event.ydata)
+            if (isEditMode[0]):
+                if (selectedIdx[0] == None):
+                    selectedIdx[0] = self.__findIndex([event.xdata, event.ydata])
+                    self.parent.drawCurve()
+                else: self.parent.updatePoint(selectedIdx[0],event.xdata, event.ydata)
+            else:   self.parent.addPoint(event.xdata, event.ydata)
+        elif event.button is MouseButton.RIGHT:
+            if (isEditMode[0]):
+                selectedIdx[0] = None
+                self.parent.drawCurve()
 
+    def clearCurve(self):
+        self.drawCurve(None)
+        
     def drawCurve(self, points):
         degree = len(points) - 1
         bc = BezierCurve()            
         to_plot_x, to_plot_y = bc.bezier_curve_points_to_draw(points)
         self.axes.set_xlim(0,10)
         self.axes.set_ylim(0,10)
-        if len(points) <= 0:
+        if (points == None) or (len(points) <= 0):
             return
         x = [i[0] for i in points]
         y = [i[1] for i in points]
@@ -102,6 +127,8 @@ class MplCanvas(FigureCanvasQTAgg):
         )
         
         self.axes.scatter(x, y, color="red", label="Control Points")
+        if (selectedIdx[0] != None) and (selectedIdx[0] < len(points)):
+            self.axes.scatter(points[selectedIdx[0]][0], points[selectedIdx[0]][1], color="green", label="Edited Points")
         
 
 class MainWindow(QMainWindow):
@@ -162,6 +189,8 @@ class MainWindow(QMainWindow):
         self.toolbox.setLayout(self.toolbox_layout)
 
     def onMyToolBarButtonClick(self, s):
+        isEditMode[0] = False
+        selectedIdx[0] = None
         if (self.sender().text() == "Mouse"):
             self.__clearCurve()
             self.__resetTable()
@@ -172,6 +201,7 @@ class MainWindow(QMainWindow):
             self.points = []
             self.mode = 1
         elif (self.sender().text() == "Edit mouse"):
+            isEditMode[0] = True
             self.__resetTable()
             self.mode = 2
         elif (self.sender().text() == "Edit table"):
@@ -276,6 +306,15 @@ class MainWindow(QMainWindow):
     def addPoint(self,x,y):
         if (self.mode == 0):
             self.points.append([x,y])
+            self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
+            self.bezier_curve.drawCurve(self.points)
+            self.clearAndUpdatePlot()
+            self.__updateTable()
+            
+    def updatePoint(self,idx,x,y):
+        if (self.mode == 2):
+            self.points[idx][0] = x 
+            self.points[idx][1] = y
             self.bezier_curve = MplCanvas(self, width=10, height=10, dpi=100)
             self.bezier_curve.drawCurve(self.points)
             self.clearAndUpdatePlot()
