@@ -80,13 +80,18 @@ class MplCanvas(FigureCanvasQTAgg):
         super(MplCanvas, self).__init__(self.fig)
 
     def __findIndex(self,pos):
-        points = self.parent.points
-        for i in range(len(points)):
-            print(points)
-            if (abs(points[i][0] - pos[0])<=0.1) and (abs(points[i][1] - pos[1])<=0.1):
-                print(i)
-                return i
-        return 0
+        try:
+            points = self.parent.points
+            for i in range(len(points)):
+                # print(points)
+                if (abs(points[i][0] - pos[0])<=0.1) and (abs(points[i][1] - pos[1])<=0.1):
+                    print(i)
+                    return i
+            return -1
+        except TypeError:
+            return -1
+        except ValueError:
+            return -1
     
     def move_obj(self, event):
         if (isEditMode[0]) and (selectedIdx[0] != None) and (event.xdata != None) and (event.ydata != None):
@@ -97,6 +102,9 @@ class MplCanvas(FigureCanvasQTAgg):
             if (isEditMode[0]):
                 if (selectedIdx[0] == None):
                     selectedIdx[0] = self.__findIndex([event.xdata, event.ydata])
+                    if (selectedIdx[0] < 0):
+                        selectedIdx[0] = None
+                        return
                     self.parent.drawCurve()
                 elif (selectedIdx[0] != None):
                     selectedIdx[0] = None
@@ -201,6 +209,7 @@ class MainWindow(QMainWindow):
             self.mode = 0
         elif (self.sender().text() == "Table"):
             self.__clearCurve()
+            self.__resetTable()
             self.points = []
             self.mode = 1
         elif (self.sender().text() == "Edit mouse"):
@@ -237,7 +246,7 @@ class MainWindow(QMainWindow):
     
     def __tableValueChanged(self):
         if (self.mode == 3):
-            print("Data set changed!")
+            # print("Data set changed!")
             self.__updatePlot()
 
     def __showErrorMessage(self, msg, title):
@@ -264,12 +273,14 @@ class MainWindow(QMainWindow):
         if (self.points == None):
             self.__showErrorMessage("Points coordinates must be numbers", "Invalid value")
             return
-        print('Points: {}'.format(self.points))
+        # print('Points: {}'.format(self.points))
         self.drawCurve()
 
     def __updateTable(self):
         size = self.curveDegreeInput.value()
-        self.model = QStandardItemModel(size,2,self)
+        size = len(self.points)
+        self.curveDegreeInput.setValue(size)
+        self.model = QStandardItemModel(1,2,self)
         for i in range(len(self.points)):
             self.model.insertRow(i)
             for j in range(len(self.points[i])):
@@ -302,6 +313,9 @@ class MainWindow(QMainWindow):
     
     def clearAndUpdatePlot(self):
         self.plot_layout.itemAt(0).widget().deleteLater()
+        print('Plot layout items count: {}'.format(self.plot_layout.count()))
+        if (self.plot_layout.count() > 1):
+            self.plot_layout.itemAt(0).widget().deleteLater()
         self.plot_layout.addWidget(self.bezier_curve)
         self.plotWidget.update()
         self.update()    
