@@ -23,7 +23,7 @@ class Toolbar(QToolBar):
         super(Toolbar, self).__init__()
         self.setAutoFillBackground(True)
         palette = self.palette()
-        palette.setColor(QPalette.Window, Qt.gray)
+        palette.setColor(QPalette.Window, Qt.lightGray)
         self.setPalette(palette)
         self.buttons = {
             "Mouse" : "Create with mouse",
