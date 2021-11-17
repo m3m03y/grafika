@@ -214,7 +214,7 @@ class MainWindow(QMainWindow):
             self.mode = 1
         elif (self.sender().text() == "Edit mouse"):
             isEditMode[0] = True
-            self.__resetTable()
+            # self.__resetTable()
             self.mode = 2
         elif (self.sender().text() == "Edit table"):
             self.mode = 3
