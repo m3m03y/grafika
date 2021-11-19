@@ -1,7 +1,7 @@
 import sys
 # from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 import matplotlib
-
+import math
 matplotlib.use('Qt5Agg')
 
 from PySide2.QtWidgets import *
@@ -15,9 +15,8 @@ from matplotlib import pyplot as plt
 from matplotlib.backend_bases import MouseButton
 
 toolboxColor = QColor("gray")
-CANVAS_WIDTH = 10
-CANVAS_HEIGHT = 10
-
+MIN_VAL = -10
+MAX_VAL = 10
 class Toolbar(QToolBar):
     def __init__(self, btnClick):
         super(Toolbar, self).__init__()
@@ -142,8 +141,8 @@ class MoveInput(QWidget):
         label = QLabel(name)
         value = QDoubleSpinBox()
         value.setDecimals(3)
-        value.setMaximum(CANVAS_HEIGHT)            
-        value.setMinimum(-CANVAS_HEIGHT)            
+        value.setMaximum(MAX_VAL)            
+        value.setMinimum(MIN_VAL)            
         value.setSingleStep(1.0)
         return (label,value)
 
@@ -153,17 +152,49 @@ class MoveInput(QWidget):
         self.updatePointsAction([x,y])
 
 class RotateInput(QWidget):
-    def __init__(self):
+    def __init__(self, updatePoints):
         super(RotateInput, self).__init__()
+        self.updatePointsAction = updatePoints
         self.setAutoFillBackground(True)
         palette = self.palette()
         palette.setColor(QPalette.Window, toolboxColor)
         self.setPalette(palette)
         
-        self.layout = QVBoxLayout()
-        self.test = QLabel("Rotate")
-        self.layout.addWidget(self.test)
+        self.layout = QFormLayout()
+        self.header = QLabel("Vector")
+        self.layout.addRow(self.header)
+        self.xIn = self.__initInput("X: ")
+        self.yIn = self.__initInput("Y: ")
+        self.layout.addRow(self.xIn[0],self.xIn[1])
+        self.layout.addRow(self.yIn[0],self.yIn[1])
+        self.angle_label = QLabel("Angle: ")
+        self.layout.addRow(self.angle_label,self.__initAngleInput())
+        submitBtn = QPushButton("Submit")
+        submitBtn.clicked.connect(self.__onSubmitClicked)        
+        self.layout.addRow(submitBtn)
         self.setLayout(self.layout)
+    
+    def __initAngleInput(self):
+        self.angle_input = QSpinBox()
+        self.angle_input.setMaximum(360)            
+        self.angle_input.setMinimum(0)            
+        self.angle_input.setSingleStep(1)
+        return self.angle_input
+        
+    def __initInput(self,name):
+        label = QLabel(name)
+        value = QDoubleSpinBox()
+        value.setDecimals(3)
+        value.setMaximum(MAX_VAL)            
+        value.setMinimum(MIN_VAL)            
+        value.setSingleStep(1.0)
+        return (label,value)
+
+    def __onSubmitClicked(self):
+        x = self.xIn[1].value()
+        y = self.yIn[1].value()
+        angle = self.angle_input.value()
+        self.updatePointsAction([x,y],angle)
         
 class ScaleInput(QWidget):
     def __init__(self):
@@ -202,7 +233,7 @@ class ScaleInput(QWidget):
 #         ...
 
 class MplCanvas(FigureCanvasQTAgg):
-    def __init__(self, setPoints, updatePoints, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, setPoints, translatePoints, rotatePoints, parent=None, width=5, height=4, dpi=100):
         self.points = []
         self.parent = parent
         self.mode = -1
@@ -213,7 +244,8 @@ class MplCanvas(FigureCanvasQTAgg):
         self.fig.canvas.callbacks.connect('button_release_event', self.__on_release)
         self.fig.canvas.callbacks.connect('motion_notify_event', self.__move_obj)
         self.setPointsAction = setPoints
-        self.updatePointsAction = updatePoints
+        self.translatePointsAction = translatePoints
+        self.rotatePointsAction = rotatePoints
         super(MplCanvas, self).__init__(self.fig)
 
     def __move_obj(self, event):
@@ -222,7 +254,7 @@ class MplCanvas(FigureCanvasQTAgg):
                 difX = event.xdata - self.points[self.selectedIdx][0]
                 difY = event.ydata - self.points[self.selectedIdx][1]
                 if (self.mode == 1):
-                    self.updatePointsAction([difX,difY])
+                    self.translatePointsAction([difX,difY])
             except TypeError:
                 return
             
@@ -244,7 +276,7 @@ class MplCanvas(FigureCanvasQTAgg):
     def __checkIfOnFigure(self,pos):
         for i in range(len(self.points)):
             p = self.points[i]
-            if (abs(p[0] - pos[0]) <= 0.05) and (abs(p[1]-pos[1])<= 0.05):
+            if (abs(p[0] - pos[0]) <= 0.1) and (abs(p[1]-pos[1])<= 0.1):
                 self.selectedIdx = i
                 self.drawFigure()
                 return True
@@ -274,8 +306,8 @@ class MplCanvas(FigureCanvasQTAgg):
     def drawFigure(self):
         self.axes.clear()
 
-        self.axes.set_xlim(0,CANVAS_WIDTH)
-        self.axes.set_ylim(0,CANVAS_HEIGHT)
+        self.axes.set_xlim(MIN_VAL,MAX_VAL)
+        self.axes.set_ylim(MIN_VAL,MAX_VAL)
         
         if (self.points == None) or (len(self.points) <= 0):
             return
@@ -321,7 +353,7 @@ class MainWindow(QMainWindow):
         self.layout = QGridLayout()
         self.addToolBar(Toolbar(self.__changeMode))
         
-        self.painter = MplCanvas(self.__setPoints, self.__translatePoints, self, width=10, height=10, dpi=100)
+        self.painter = MplCanvas(self.__setPoints, self.__translatePoints, self.__rotatePoints, self, width=10, height=10, dpi=100)
         self.painter.drawFigure()
         
         self.toolbox = QWidget()
@@ -351,7 +383,7 @@ class MainWindow(QMainWindow):
             self.mode = 1
         elif (self.sender().text() == "Rotate"):
             self.painter.setMode(2)
-            self.toolbox_layout.addWidget(RotateInput())
+            self.toolbox_layout.addWidget(RotateInput(self.__rotatePoints))
             self.mode = 2
         elif (self.sender().text() == "Scale"):
             self.painter.setMode(3)
@@ -388,8 +420,22 @@ class MainWindow(QMainWindow):
         newPoints = []
         for i in self.points:
             newPoints.append([i[0] + vector[0], i[1] + vector[1]])
+        self.__setPoints(newPoints)      
+    
+    def __toRadians(self,angle):
+        return angle*math.pi/180
+    
+    def __rotatePoints(self,vector, angle):
+        newPoints = []
+        angle = self.__toRadians(angle)
+        for i in self.points:
+            x, y = i
+            xr, yr = vector
+            x_new = xr + (x-xr)*math.cos(angle)-(y-yr)*math.sin(angle)
+            y_new = yr + (x-xr)*math.sin(angle)+(y-yr)*math.cos(angle)
+            newPoints.append([x_new,y_new])
         self.__setPoints(newPoints)        
-        
+
 if __name__=='__main__':
         app=QApplication(sys.argv)
         window=MainWindow()
