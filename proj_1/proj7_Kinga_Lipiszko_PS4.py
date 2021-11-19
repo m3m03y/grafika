@@ -275,7 +275,7 @@ class ScaleInput(QWidget):
         self.parent.setWaypoint([x,y])
         self.parent.savePoints()
 class MplCanvas(FigureCanvasQTAgg):
-    def __init__(self, setPoints, translatePoints, rotatePoints, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, setPoints, translatePoints, rotatePoints, scalePoints, parent=None, width=5, height=4, dpi=100):
         self.points = []
         self.parent = parent
         self.mode = -1
@@ -291,6 +291,7 @@ class MplCanvas(FigureCanvasQTAgg):
         self.setPointsAction = setPoints
         self.translatePointsAction = translatePoints
         self.rotatePointsAction = rotatePoints
+        self.scalePointsAction = scalePoints
         super(MplCanvas, self).__init__(self.fig)
 
     def __move_obj(self, event):
@@ -304,6 +305,9 @@ class MplCanvas(FigureCanvasQTAgg):
                     angle = self.__calculateAngleBetweenPoints([event.xdata,event.ydata],self.original_position)
                     self.parent.setAngle([difX,difY],angle)
                     self.rotatePointsAction(self.waypoint,angle)
+                elif (self.mode == 3):
+                    scale = self.__calculateScale([event.xdata,event.ydata],self.original_position,self.waypoint);
+                    self.scalePointsAction(self.waypoint,scale)
             except TypeError:
                 return
             
@@ -315,7 +319,7 @@ class MplCanvas(FigureCanvasQTAgg):
                 self.setPointsAction(self.points)
         elif (event.button is MouseButton.LEFT) and self.mode >= 1:
             self.__checkIfOnFigure([event.xdata, event.ydata])        
-        elif (event.button is MouseButton.RIGHT) and ((self.mode == 2) or (self.mode == 3)):
+        elif (event.button is MouseButton.RIGHT) and (self.mode >= 2):
             self.waypoint = [event.xdata, event.ydata]
             self.drawFigure()
 
@@ -352,7 +356,16 @@ class MplCanvas(FigureCanvasQTAgg):
         ang2 = np.arctan2(*pointB[::-1])
         angle = (ang1 - ang2) % (2 * np.pi)
         return angle
-        
+    
+    def __calculateScale(self,pointA,pointB, center):
+        if (pointB[0] == center[0]):
+            xscale = 1
+        else: xscale = (pointA[0] - center[0]) / (pointB[0] - center[0]) #TODO: do ABSOLUTE value needed?
+        if (pointB[1] == center[1]):
+            yscale = 1
+        else: yscale = (pointA[1] - center[1]) / (pointB[1] - center[1])
+        return (xscale, yscale)
+                
     def setWaypoint(self,waypoint):
         self.waypoint = waypoint
         self.drawFigure()
@@ -417,7 +430,7 @@ class MainWindow(QMainWindow):
         self.layout = QGridLayout()
         self.addToolBar(Toolbar(self.__changeMode))
         
-        self.painter = MplCanvas(self.__setPoints, self.__translatePoints, self.__rotatePoints, self, width=10, height=10, dpi=100)
+        self.painter = MplCanvas(self.__setPoints, self.__translatePoints, self.__rotatePoints, self.__scalePoints, self, width=10, height=10, dpi=100)
         self.painter.drawFigure()
         
         self.toolbox = QWidget()
@@ -490,14 +503,17 @@ class MainWindow(QMainWindow):
     def setWaypoint(self,waypoint):
         self.painter.setWaypoint(waypoint)    
         
-    def setAngle(self,pos,angle):
-        self.rotate_input.setAngle(pos,angle)
+    def setAngle(self,vector,angle):
+        self.rotate_input.setAngle(vector,angle)
     
     def savePoints(self):
         self.original = [i for i in self.points]
 
-    def setVector(self,pos):
-        self.move_input.setVector(pos)
+    def setVector(self,vector):
+        self.move_input.setVector(vector)
+    
+    def setScale(self,vector,scale):
+        self.scale_input.setScale(vector,scale)
         
     def __setPoints(self, points):
         self.points = points
@@ -523,6 +539,7 @@ class MainWindow(QMainWindow):
         self.__setPoints(newPoints)    
     
     def __scalePoints(self,vector, scale):
+        self.setScale(vector,scale)
         newPoints = []
         for i in self.original:
             x, y = i
@@ -542,7 +559,6 @@ class MainWindow(QMainWindow):
         if not filePath.__contains__('.json'): filePath += '.json'
         jsonString = json.dumps(self.points)
 
-        print(jsonString)
         file = open(filePath, 'w')
         file.write(jsonString)
         file.close()
@@ -557,7 +573,6 @@ class MainWindow(QMainWindow):
         file = open(filePath,'r')
         self.points = []
         data = json.load(file)
-        print(data)
         for obj in data:
             self.points.append(obj)
         self.painter.update()
