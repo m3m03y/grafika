@@ -4,7 +4,7 @@ from typing import Any
 import matplotlib
 import math
 import json
-
+import numpy as np
 matplotlib.use('Qt5Agg')
 
 from PySide2.QtWidgets import *
@@ -157,6 +157,11 @@ class MoveInput(QWidget):
         y = self.yIn[1].value()
         self.updatePointsAction([x,y])
         self.parent.savePoints()
+    
+    def setVector(self,pos):
+        self.xIn[1].setValue(pos[0])
+        self.yIn[1].setValue(pos[1])
+        self.update()
 
 class RotateInput(QWidget):
     def __init__(self, updatePoints, parent = Any):
@@ -182,14 +187,16 @@ class RotateInput(QWidget):
         self.layout.addRow(submitBtn)
         self.setLayout(self.layout)
     
-    def setAngle(self,angle):
+    def setAngle(self,pos,angle):
         self.angle_input.setValue(self.__toDegrees(angle))
+        self.xIn[1].setValue(pos[0])
+        self.yIn[1].setValue(pos[1])
         self.update()
         
     def __initAngleInput(self):
         self.angle_input = QSpinBox()
         self.angle_input.setMaximum(360)            
-        self.angle_input.setMinimum(0)            
+        self.angle_input.setMinimum(-360)            
         self.angle_input.setSingleStep(1)
         return self.angle_input
         
@@ -209,6 +216,7 @@ class RotateInput(QWidget):
         angle = self.__toRadians(angle)
         self.updatePointsAction([x,y],angle)
         self.parent.setWaypoint([x,y])
+        self.parent.savePoints()
         
     def __toRadians(self,angle):
         return angle*math.pi/180
@@ -277,13 +285,11 @@ class MplCanvas(FigureCanvasQTAgg):
                 difX = event.xdata - self.original_position[0]
                 difY = event.ydata - self.original_position[1]
                 if (self.mode == 1):
-                    # difX = event.xdata - self.points[self.selectedIdx][0]
-                    # difY = event.ydata - self.points[self.selectedIdx][1]
-                    self.translatePointsAction([difX,difY])                
+                    self.translatePointsAction([difX,difY])        
                 elif (self.mode == 2):
-                    angle = self.__calculateAngleBetweenPoints(self.original_position, [event.xdata,event.ydata])
-                    self.parent.setAngle(angle)
-                    self.rotatePointsAction([difX,difY],angle)
+                    angle = self.__calculateAngleBetweenPoints([event.xdata,event.ydata],self.original_position)
+                    self.parent.setAngle([difX,difY],angle)
+                    self.rotatePointsAction(self.waypoint,angle)
             except TypeError:
                 return
             
@@ -300,7 +306,7 @@ class MplCanvas(FigureCanvasQTAgg):
             self.drawFigure()
 
     def __on_release(self,event):
-        if (event.button is MouseButton.LEFT) and self.mode == 1:
+        if (event.button is MouseButton.LEFT) and self.mode >= 1:
             self.selectedIdx = -1
             self.original_position = None
             self.parent.savePoints()
@@ -328,8 +334,9 @@ class MplCanvas(FigureCanvasQTAgg):
         return (x_arr,y_arr)
 
     def __calculateAngleBetweenPoints(self, pointA, pointB):
-        angle = math.pi/2
-        print('Calculated angle: {}'.format(angle * 180 / math.pi))
+        ang1 = np.arctan2(*pointA[::-1])
+        ang2 = np.arctan2(*pointB[::-1])
+        angle = (ang1 - ang2) % (2 * np.pi)
         return angle
         
     def setWaypoint(self,waypoint):
@@ -426,7 +433,8 @@ class MainWindow(QMainWindow):
         elif (self.sender().text() == "Move"):
             self.mode = 1
             self.painter.setMode(1)
-            self.toolbox_layout.addWidget(MoveInput(self.__translatePoints,self))
+            self.move_input = MoveInput(self.__translatePoints,self)
+            self.toolbox_layout.addWidget(self.move_input)
         elif (self.sender().text() == "Rotate"):
             self.mode = 2
             self.painter.setMode(2)
@@ -467,12 +475,15 @@ class MainWindow(QMainWindow):
     def setWaypoint(self,waypoint):
         self.painter.setWaypoint(waypoint)    
         
-    def setAngle(self,angle):
-        self.rotate_input.setAngle(angle)
+    def setAngle(self,pos,angle):
+        self.rotate_input.setAngle(pos,angle)
     
     def savePoints(self):
         self.original = [i for i in self.points]
-         
+
+    def setVector(self,pos):
+        self.move_input.setVector(pos)
+        
     def __setPoints(self, points):
         self.points = points
         self.painter.setPoints(points)
@@ -480,6 +491,7 @@ class MainWindow(QMainWindow):
             self.table.setPoints(points)
     
     def __translatePoints(self,vector):
+        self.setVector(vector)
         newPoints = []
         for i in self.original:
             newPoints.append([i[0] + vector[0], i[1] + vector[1]])
