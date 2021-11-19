@@ -225,41 +225,55 @@ class RotateInput(QWidget):
         return angle * 180 / math.pi
     
 class ScaleInput(QWidget):
-    def __init__(self):
+    def __init__(self, updatePoints, parent = Any):
         super(ScaleInput, self).__init__()
+        self.updatePointsAction = updatePoints
+        self.parent = parent
         self.setAutoFillBackground(True)
         palette = self.palette()
         palette.setColor(QPalette.Window, toolboxColor)
         self.setPalette(palette)
         
-        self.layout = QVBoxLayout()
-        self.test = QLabel("Scale")
-        self.layout.addWidget(self.test)
+        self.layout = QFormLayout()
+        self.header = QLabel("Vector")
+        self.layout.addRow(self.header)
+        self.xIn = self.__initInput("X: ",MIN_VAL,MAX_VAL)
+        self.yIn = self.__initInput("Y: ",MIN_VAL,MAX_VAL)
+        self.layout.addRow(self.xIn[0],self.xIn[1])
+        self.layout.addRow(self.yIn[0],self.yIn[1])
+        self.scaleXIn = self.__initInput("Scale X: ",0,10)
+        self.scaleYIn = self.__initInput("Scale Y: ",0,10)
+        self.layout.addRow(self.scaleXIn[0],self.scaleXIn[1])
+        self.layout.addRow(self.scaleYIn[0],self.scaleYIn[1])
+        submitBtn = QPushButton("Submit")
+        submitBtn.clicked.connect(self.__onSubmitClicked)        
+        self.layout.addRow(submitBtn)
         self.setLayout(self.layout)
-
-# class Painter(QWidget):
-#     def __init__(self):
-#         super(Painter, self).__init__()
-
-#         self.image = QImage(self.size(), QImage.Format_RGB32)
-        
-#     def paintEvent(self, event):
-#         painter = QPainter(self)
-#         painter.setPen(QPen(Qt.red,  10, Qt.SolidLine))
-#         painter.drawLine(QPoint(200,200),QPoint(300,300))
-
-#     def mouseMoveEvent(self, e):
-#         ...
-
-#     def mousePressEvent(self, e):
-#         print("pressed")
-
-#     def mouseReleaseEvent(self, e):
-#         ...
     
-#     def mouseDoubleClickEvent(self, e):
-#         ...
+    def setScale(self,pos,scale):
+        self.xIn[1].setValue(pos[0])
+        self.yIn[1].setValue(pos[1])        
+        self.scaleXIn[1].setValue(scale[0])
+        self.scaleYIn[1].setValue(scale[1])
+        self.update()
+        
+    def __initInput(self,name, minVal, maxVal):
+        label = QLabel(name)
+        value = QDoubleSpinBox()
+        value.setDecimals(3)
+        value.setMaximum(maxVal)            
+        value.setMinimum(minVal)            
+        value.setSingleStep(1.0)
+        return (label,value)
 
+    def __onSubmitClicked(self):
+        x = self.xIn[1].value()
+        y = self.yIn[1].value()
+        scaleX = self.scaleXIn[1].value()
+        scaleY = self.scaleYIn[1].value()
+        self.updatePointsAction([x,y],[scaleX,scaleY])
+        self.parent.setWaypoint([x,y])
+        self.parent.savePoints()
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self, setPoints, translatePoints, rotatePoints, parent=None, width=5, height=4, dpi=100):
         self.points = []
@@ -443,7 +457,8 @@ class MainWindow(QMainWindow):
         elif (self.sender().text() == "Scale"):
             self.mode = 3
             self.painter.setMode(3)
-            self.toolbox_layout.addWidget(ScaleInput())
+            self.scale_input = ScaleInput(self.__scalePoints,self)
+            self.toolbox_layout.addWidget(self.scale_input)
         elif (self.sender().text() == "Clear"):
             self.__setPoints([])
             self.mode = -1        
@@ -506,7 +521,17 @@ class MainWindow(QMainWindow):
             y_new = yr + (x-xr)*math.sin(angle)+(y-yr)*math.cos(angle)
             newPoints.append([x_new,y_new])
         self.__setPoints(newPoints)    
-            
+    
+    def __scalePoints(self,vector, scale):
+        newPoints = []
+        for i in self.original:
+            x, y = i
+            xf, yf = vector
+            x_new = xf + (x-xf)*scale[0]
+            y_new = yf + (y-yf)*scale[1]
+            newPoints.append([x_new,y_new])
+        self.__setPoints(newPoints)    
+        
     def __saveFile(self):
         filePath, _ = QFileDialog.getSaveFileName(self, "Save Image", "",
             "JSON(*.json) ")
