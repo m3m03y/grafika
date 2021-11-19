@@ -73,6 +73,7 @@ class CreateInput(QWidget):
             self.parent.showErrorMessage("Points coordinates must be numbers", "Invalid value")
             return
         self.__updateModel()
+        self.addPointAction(self.points)
         
     def __updateModel(self):
         self.row_size = 0
@@ -87,8 +88,8 @@ class CreateInput(QWidget):
         self.model.dataChanged.connect(self.__update)
         self.table.setModel(self.model)
 
-    def addPoint(self,point):
-        self.points.append(point)
+    def setPoints(self,points):
+        self.points = points
         self.__updateModel()
         
     def readTable(self):
@@ -150,47 +151,50 @@ class ScaleInput(QWidget):
         self.layout.addWidget(self.test)
         self.setLayout(self.layout)
 
-class Painter(QWidget):
-    def __init__(self):
-        super(Painter, self).__init__()
+# class Painter(QWidget):
+#     def __init__(self):
+#         super(Painter, self).__init__()
 
-        self.image = QImage(self.size(), QImage.Format_RGB32)
+#         self.image = QImage(self.size(), QImage.Format_RGB32)
         
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setPen(QPen(Qt.red,  10, Qt.SolidLine))
-        painter.drawLine(QPoint(200,200),QPoint(300,300))
+#     def paintEvent(self, event):
+#         painter = QPainter(self)
+#         painter.setPen(QPen(Qt.red,  10, Qt.SolidLine))
+#         painter.drawLine(QPoint(200,200),QPoint(300,300))
 
-    def mouseMoveEvent(self, e):
-        ...
+#     def mouseMoveEvent(self, e):
+#         ...
 
-    def mousePressEvent(self, e):
-        print("pressed")
+#     def mousePressEvent(self, e):
+#         print("pressed")
 
-    def mouseReleaseEvent(self, e):
-        ...
+#     def mouseReleaseEvent(self, e):
+#         ...
     
-    def mouseDoubleClickEvent(self, e):
-        ...
+#     def mouseDoubleClickEvent(self, e):
+#         ...
 
 class MplCanvas(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
-        self.fig = Figure(figsize=(width, height), dpi=dpi)
+    def __init__(self, setPoints, parent=None, width=5, height=4, dpi=100):
         self.points = []
         self.parent = parent
+        self.createMode = False
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
         self.fig.canvas.callbacks.connect('button_press_event', self.__on_click)
         self.fig.canvas.callbacks.connect('motion_notify_event', self.__move_obj)
+        self.setPointsAction = setPoints
         super(MplCanvas, self).__init__(self.fig)
 
     def __move_obj(self, event):
         ...
 
     def __on_click(self,event):
-        print("click")
-        if event.button is MouseButton.LEFT:
+        if (event.button is MouseButton.LEFT) and self.createMode:
             self.points.append([event.xdata, event.ydata])
             self.drawFigure()
+            if (self.points != None):
+                self.setPointsAction(self.points)
 
     def __calculateFigure(self):
         x_arr = []
@@ -202,9 +206,12 @@ class MplCanvas(FigureCanvasQTAgg):
         x_arr.append(self.points[0][0])
         y_arr.append(self.points[0][1])
         return (x_arr,y_arr)
+
+    def setMode(self, mode):
+        self.createMode = mode
         
-    def addPoint(self,point):
-        self.points.append(point)
+    def setPoints(self,points):
+        self.points = points
         self.drawFigure()
         
     def clear(self):
@@ -240,6 +247,7 @@ class MainWindow(QMainWindow):
         self.points = []
         self.setAutoFillBackground(True)
         self.mode = -1
+        self.table = None
         palette = self.palette()
         palette.setColor(QPalette.Window, Qt.white)
         self.setPalette(palette)
@@ -257,7 +265,7 @@ class MainWindow(QMainWindow):
         self.layout = QGridLayout()
         self.addToolBar(Toolbar(self.__changeMode))
         
-        self.painter = MplCanvas(self, width=10, height=10, dpi=100)
+        self.painter = MplCanvas(self.__setPoints, self, width=10, height=10, dpi=100)
         self.painter.drawFigure()
         
         self.toolbox = QWidget()
@@ -274,9 +282,11 @@ class MainWindow(QMainWindow):
 
     def __changeMode(self, s):
         self.__clearToolbox()
+        self.painter.setMode(False)
         if (self.sender().text() == "Create"):
-            self.toolbox_layout.addWidget(CreateInput(self.__addPoint,self))
-            # self.toolbox_layout.addWidget(QTableWidget())
+            self.painter.setMode(True)
+            self.table = CreateInput(self.__setPoints,self)
+            self.toolbox_layout.addWidget(self.table)
             self.mode = 0
         elif (self.sender().text() == "Move"):
             self.toolbox_layout.addWidget(MoveInput())
@@ -288,6 +298,7 @@ class MainWindow(QMainWindow):
             self.toolbox_layout.addWidget(ScaleInput())
             self.mode = 3
         elif (self.sender().text() == "Clear"):
+            self.__setPoints([])
             self.mode = 4
         print('Set to {} mode'.format(self.mode))
 
@@ -307,8 +318,11 @@ class MainWindow(QMainWindow):
             defaultButton=QMessageBox.Ignore,
         )
     
-    def __addPoint(self):
-        ...
+    def __setPoints(self, points):
+        self.painter.setPoints(points)
+        if (self.table != None):
+            self.table.setPoints(points)
+    
 
 if __name__=='__main__':
         app=QApplication(sys.argv)
