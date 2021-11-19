@@ -1,7 +1,10 @@
 import sys
+from typing import Any
 # from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 import matplotlib
 import math
+import json
+
 matplotlib.use('Qt5Agg')
 
 from PySide2.QtWidgets import *
@@ -29,7 +32,9 @@ class Toolbar(QToolBar):
             "Move" : "Move figure",
             "Rotate" : "Rotate figure",
             "Scale" : "Scale figure",
-            "Clear" : "Clear"
+            "Clear" : "Clear",
+            "Save" : "Save figure",
+            "Open" : "Open figure"
         }
         self.createToolbar(btnClick)
 
@@ -152,9 +157,10 @@ class MoveInput(QWidget):
         self.updatePointsAction([x,y])
 
 class RotateInput(QWidget):
-    def __init__(self, updatePoints):
+    def __init__(self, updatePoints, parent = Any):
         super(RotateInput, self).__init__()
         self.updatePointsAction = updatePoints
+        self.parent = parent
         self.setAutoFillBackground(True)
         palette = self.palette()
         palette.setColor(QPalette.Window, toolboxColor)
@@ -174,6 +180,10 @@ class RotateInput(QWidget):
         self.layout.addRow(submitBtn)
         self.setLayout(self.layout)
     
+    def setAngle(self,angle):
+        self.angle_input.setValue(self.__toDegrees(angle))
+        self.update()
+        
     def __initAngleInput(self):
         self.angle_input = QSpinBox()
         self.angle_input.setMaximum(360)            
@@ -194,8 +204,16 @@ class RotateInput(QWidget):
         x = self.xIn[1].value()
         y = self.yIn[1].value()
         angle = self.angle_input.value()
+        angle = self.__toRadians(angle)
         self.updatePointsAction([x,y],angle)
+        self.parent.setWaypoint([x,y])
         
+    def __toRadians(self,angle):
+        return angle*math.pi/180
+    
+    def __toDegrees(self,angle):
+        return angle * 180 / math.pi
+    
 class ScaleInput(QWidget):
     def __init__(self):
         super(ScaleInput, self).__init__()
@@ -238,6 +256,8 @@ class MplCanvas(FigureCanvasQTAgg):
         self.parent = parent
         self.mode = -1
         self.selectedIdx = -1
+        self.waypoint = [0,0]
+        
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
         self.fig.canvas.callbacks.connect('button_press_event', self.__on_click)
@@ -254,19 +274,25 @@ class MplCanvas(FigureCanvasQTAgg):
                 difX = event.xdata - self.points[self.selectedIdx][0]
                 difY = event.ydata - self.points[self.selectedIdx][1]
                 if (self.mode == 1):
-                    self.translatePointsAction([difX,difY])
+                    self.translatePointsAction([difX,difY])                
+                if (self.mode == 2):
+                    angle = self.__calculateAngleBetweenPoints(self.points[self.selectedIdx], [event.xdata,event.ydata])
+                    self.parent.setAngle(angle)
+                    self.rotatePointsAction([difX,difY],angle)
             except TypeError:
                 return
             
-
     def __on_click(self,event):
         if (event.button is MouseButton.LEFT) and self.mode == 0:
             self.points.append([event.xdata, event.ydata])
             self.drawFigure()
             if (self.points != None):
                 self.setPointsAction(self.points)
-        elif (event.button is MouseButton.LEFT) and self.mode == 1:
-            self.__checkIfOnFigure([event.xdata, event.ydata])
+        elif (event.button is MouseButton.LEFT) and self.mode >= 1:
+            self.__checkIfOnFigure([event.xdata, event.ydata])        
+        elif (event.button is MouseButton.RIGHT) and ((self.mode == 2) or (self.mode == 3)):
+            self.waypoint = [event.xdata, event.ydata]
+            self.drawFigure()
 
     def __on_release(self,event):
         if (event.button is MouseButton.LEFT) and self.mode == 1:
@@ -293,14 +319,18 @@ class MplCanvas(FigureCanvasQTAgg):
         y_arr.append(self.points[0][1])
         return (x_arr,y_arr)
 
+    def __calculateAngleBetweenPoints(self, pointA, pointB):
+        return math.pi/2
+        
+    def setWaypoint(self,waypoint):
+        self.waypoint = waypoint
+        self.drawFigure()
+        
     def setMode(self, mode):
         self.mode = mode
         
     def setPoints(self,points):
         self.points = points
-        self.drawFigure()
-        
-    def clear(self):
         self.drawFigure()
         
     def drawFigure(self):
@@ -310,6 +340,7 @@ class MplCanvas(FigureCanvasQTAgg):
         self.axes.set_ylim(MIN_VAL,MAX_VAL)
         
         if (self.points == None) or (len(self.points) <= 0):
+            self.fig.canvas.draw()
             return
         
         to_plot_x, to_plot_y = self.__calculateFigure()
@@ -327,6 +358,8 @@ class MplCanvas(FigureCanvasQTAgg):
         self.axes.scatter(x, y, color="red", label="Vertex")
         if (self.selectedIdx >= 0):
             self.axes.scatter(self.points[self.selectedIdx][0], self.points[self.selectedIdx][1], color="green", label="Selected")
+        if (self.mode == 2) or (self.mode == 3):
+            self.axes.scatter(self.waypoint[0], self.waypoint[1], color="cyan", label="Waypoint")
         self.fig.canvas.draw()
 
 class MainWindow(QMainWindow):
@@ -372,26 +405,34 @@ class MainWindow(QMainWindow):
         self.__clearToolbox()
         self.painter.setMode(-1)
         if (self.sender().text() == "Create"):
+            self.mode = 0
             self.painter.setMode(0)
             self.table = CreateInput(self.__setPoints,self)
-            self.mode = 0
             self.__setPoints(self.points)
             self.toolbox_layout.addWidget(self.table)
         elif (self.sender().text() == "Move"):
+            self.mode = 1
             self.painter.setMode(1)
             self.toolbox_layout.addWidget(MoveInput(self.__translatePoints))
-            self.mode = 1
         elif (self.sender().text() == "Rotate"):
-            self.painter.setMode(2)
-            self.toolbox_layout.addWidget(RotateInput(self.__rotatePoints))
             self.mode = 2
+            self.painter.setMode(2)
+            self.rotate_input = RotateInput(self.__rotatePoints,self)
+            self.toolbox_layout.addWidget(self.rotate_input)
         elif (self.sender().text() == "Scale"):
+            self.mode = 3
             self.painter.setMode(3)
             self.toolbox_layout.addWidget(ScaleInput())
-            self.mode = 3
         elif (self.sender().text() == "Clear"):
             self.__setPoints([])
-            self.mode = 4
+            self.mode = -1        
+        elif (self.sender().text() == "Save"):
+            self.__saveFile()
+            self.mode = -2        
+        elif (self.sender().text() == "Open"):
+            self.__openFile()
+            self.__setPoints(self.points)
+            self.mode = -3
         print('Set to {} mode'.format(self.mode))
 
         self.toolbox.update()
@@ -410,6 +451,12 @@ class MainWindow(QMainWindow):
             defaultButton=QMessageBox.Ignore,
         )
     
+    def setWaypoint(self,waypoint):
+        self.painter.setWaypoint(waypoint)    
+        
+    def setAngle(self,angle):
+        self.rotate_input.setAngle(angle)
+        
     def __setPoints(self, points):
         self.points = points
         self.painter.setPoints(points)
@@ -422,20 +469,46 @@ class MainWindow(QMainWindow):
             newPoints.append([i[0] + vector[0], i[1] + vector[1]])
         self.__setPoints(newPoints)      
     
-    def __toRadians(self,angle):
-        return angle*math.pi/180
-    
     def __rotatePoints(self,vector, angle):
         newPoints = []
-        angle = self.__toRadians(angle)
         for i in self.points:
             x, y = i
             xr, yr = vector
             x_new = xr + (x-xr)*math.cos(angle)-(y-yr)*math.sin(angle)
             y_new = yr + (x-xr)*math.sin(angle)+(y-yr)*math.cos(angle)
             newPoints.append([x_new,y_new])
-        self.__setPoints(newPoints)        
+        self.__setPoints(newPoints)    
+            
+    def __saveFile(self):
+        filePath, _ = QFileDialog.getSaveFileName(self, "Save Image", "",
+            "JSON(*.json) ")
+ 
+        if filePath == "":
+            return        
+        
+        if not filePath.__contains__('.json'): filePath += '.json'
+        jsonString = json.dumps(self.points)
 
+        print(jsonString)
+        file = open(filePath, 'w')
+        file.write(jsonString)
+        file.close()
+
+    def __openFile(self):
+        filePath, _ = QFileDialog.getOpenFileName(self, 'Open File', "",
+            "JSON(*.json) ")
+ 
+        if filePath == "":
+            return         
+        
+        file = open(filePath,'r')
+        self.points = []
+        data = json.load(file)
+        print(data)
+        for obj in data:
+            self.points.append(obj)
+        self.painter.update()
+        
 if __name__=='__main__':
         app=QApplication(sys.argv)
         window=MainWindow()
