@@ -70,7 +70,6 @@ class CreateInput(QWidget):
     def __update(self):
         self.points = self.readTable()
         if (self.points == None):
-            self.parent.showErrorMessage("Points coordinates must be numbers", "Invalid value")
             return
         self.__updateModel()
         self.addPointAction(self.points)
@@ -103,27 +102,55 @@ class CreateInput(QWidget):
             table_data.append([])
             for column in range(model.columnCount()):
                 index = model.index(row, column)
+                val = model.data(index)
                 try:
-                    val = str(model.data(index)).replace(',','.')
+                    str(val).replace(',','.')
                     table_data[row].append(float(val))
                 except TypeError: 
+                    if (val != None): 
+                        self.parent.showErrorMessage("Points coordinates must be numbers", "Invalid value")
                     return None
+                    table_data[row].append(float(0.0))
                 except ValueError:
+                    if (val != None): 
+                        self.parent.showErrorMessage("Points coordinates must be numbers", "Invalid value")
                     return None
         return table_data
 
 class MoveInput(QWidget):
-    def __init__(self):
+    def __init__(self, updatePoints):
         super(MoveInput, self).__init__()
+        self.updatePointsAction = updatePoints
         self.setAutoFillBackground(True)
         palette = self.palette()
         palette.setColor(QPalette.Window, toolboxColor)
         self.setPalette(palette)
         
-        self.layout = QVBoxLayout()
-        self.test = QLabel("Move")
-        self.layout.addWidget(self.test)
+        self.layout = QFormLayout()
+        self.header = QLabel("Vector")
+        self.layout.addRow(self.header)
+        self.xIn = self.__initInput("X: ")
+        self.yIn = self.__initInput("Y: ")
+        self.layout.addRow(self.xIn[0],self.xIn[1])
+        self.layout.addRow(self.yIn[0],self.yIn[1])
+        submitBtn = QPushButton("Submit")
+        submitBtn.clicked.connect(self.__onSubmitClicked)        
+        self.layout.addRow(submitBtn)
         self.setLayout(self.layout)
+        
+    def __initInput(self,name):
+        label = QLabel(name)
+        value = QDoubleSpinBox()
+        value.setDecimals(3)
+        value.setMaximum(CANVAS_HEIGHT)            
+        value.setMinimum(-CANVAS_HEIGHT)            
+        value.setSingleStep(1.0)
+        return (label,value)
+
+    def __onSubmitClicked(self):
+        x = self.xIn[1].value()
+        y = self.yIn[1].value()
+        self.updatePointsAction([x,y])
 
 class RotateInput(QWidget):
     def __init__(self):
@@ -175,27 +202,54 @@ class ScaleInput(QWidget):
 #         ...
 
 class MplCanvas(FigureCanvasQTAgg):
-    def __init__(self, setPoints, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, setPoints, updatePoints, parent=None, width=5, height=4, dpi=100):
         self.points = []
         self.parent = parent
-        self.createMode = False
+        self.mode = -1
+        self.selectedIdx = -1
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
         self.fig.canvas.callbacks.connect('button_press_event', self.__on_click)
+        self.fig.canvas.callbacks.connect('button_release_event', self.__on_release)
         self.fig.canvas.callbacks.connect('motion_notify_event', self.__move_obj)
         self.setPointsAction = setPoints
+        self.updatePointsAction = updatePoints
         super(MplCanvas, self).__init__(self.fig)
 
     def __move_obj(self, event):
-        ...
+        if (self.mode >= 1) and (self.selectedIdx >= 0):
+            try:
+                difX = event.xdata - self.points[self.selectedIdx][0]
+                difY = event.ydata - self.points[self.selectedIdx][1]
+                if (self.mode == 1):
+                    self.updatePointsAction([difX,difY])
+            except TypeError:
+                return
+            
 
     def __on_click(self,event):
-        if (event.button is MouseButton.LEFT) and self.createMode:
+        if (event.button is MouseButton.LEFT) and self.mode == 0:
             self.points.append([event.xdata, event.ydata])
             self.drawFigure()
             if (self.points != None):
                 self.setPointsAction(self.points)
+        elif (event.button is MouseButton.LEFT) and self.mode == 1:
+            self.__checkIfOnFigure([event.xdata, event.ydata])
 
+    def __on_release(self,event):
+        if (event.button is MouseButton.LEFT) and self.mode == 1:
+            self.selectedIdx = -1
+            self.drawFigure()
+            
+    def __checkIfOnFigure(self,pos):
+        for i in range(len(self.points)):
+            p = self.points[i]
+            if (abs(p[0] - pos[0]) <= 0.05) and (abs(p[1]-pos[1])<= 0.05):
+                self.selectedIdx = i
+                self.drawFigure()
+                return True
+        return False
+        
     def __calculateFigure(self):
         x_arr = []
         y_arr = []
@@ -208,7 +262,7 @@ class MplCanvas(FigureCanvasQTAgg):
         return (x_arr,y_arr)
 
     def setMode(self, mode):
-        self.createMode = mode
+        self.mode = mode
         
     def setPoints(self,points):
         self.points = points
@@ -239,6 +293,8 @@ class MplCanvas(FigureCanvasQTAgg):
         )
         
         self.axes.scatter(x, y, color="red", label="Vertex")
+        if (self.selectedIdx >= 0):
+            self.axes.scatter(self.points[self.selectedIdx][0], self.points[self.selectedIdx][1], color="green", label="Selected")
         self.fig.canvas.draw()
 
 class MainWindow(QMainWindow):
@@ -265,7 +321,7 @@ class MainWindow(QMainWindow):
         self.layout = QGridLayout()
         self.addToolBar(Toolbar(self.__changeMode))
         
-        self.painter = MplCanvas(self.__setPoints, self, width=10, height=10, dpi=100)
+        self.painter = MplCanvas(self.__setPoints, self.__translatePoints, self, width=10, height=10, dpi=100)
         self.painter.drawFigure()
         
         self.toolbox = QWidget()
@@ -282,19 +338,23 @@ class MainWindow(QMainWindow):
 
     def __changeMode(self, s):
         self.__clearToolbox()
-        self.painter.setMode(False)
+        self.painter.setMode(-1)
         if (self.sender().text() == "Create"):
-            self.painter.setMode(True)
+            self.painter.setMode(0)
             self.table = CreateInput(self.__setPoints,self)
-            self.toolbox_layout.addWidget(self.table)
             self.mode = 0
+            self.__setPoints(self.points)
+            self.toolbox_layout.addWidget(self.table)
         elif (self.sender().text() == "Move"):
-            self.toolbox_layout.addWidget(MoveInput())
+            self.painter.setMode(1)
+            self.toolbox_layout.addWidget(MoveInput(self.__translatePoints))
             self.mode = 1
         elif (self.sender().text() == "Rotate"):
+            self.painter.setMode(2)
             self.toolbox_layout.addWidget(RotateInput())
             self.mode = 2
         elif (self.sender().text() == "Scale"):
+            self.painter.setMode(3)
             self.toolbox_layout.addWidget(ScaleInput())
             self.mode = 3
         elif (self.sender().text() == "Clear"):
@@ -319,11 +379,17 @@ class MainWindow(QMainWindow):
         )
     
     def __setPoints(self, points):
+        self.points = points
         self.painter.setPoints(points)
-        if (self.table != None):
+        if (self.mode == 0):
             self.table.setPoints(points)
     
-
+    def __translatePoints(self,vector):
+        newPoints = []
+        for i in self.points:
+            newPoints.append([i[0] + vector[0], i[1] + vector[1]])
+        self.__setPoints(newPoints)        
+        
 if __name__=='__main__':
         app=QApplication(sys.argv)
         window=MainWindow()
