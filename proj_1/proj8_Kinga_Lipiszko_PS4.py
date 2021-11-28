@@ -4,6 +4,7 @@ from PySide6.QtGui import *
 from PySide6.QtCore import *
 import numpy as np
 from PySide6.QtCharts import * 
+import math
 
 MODES = [
     "Dilation",                 #0
@@ -21,13 +22,52 @@ class ImageConverter:
     def __init__(self):
         ...
 
+    def setOriginal(self,image):
+        self.original = QPixmap.fromImage(image).toImage()
+        self.bin_image = self.__binarization(QPixmap.fromImage(image).toImage())
+
+    def __processImageFiltering(self, func, image, kernel):
+        if (kernel is not None):
+            kernel_range = math.floor(len(kernel) / 2)
+        else: kernel_range = 1
+        for y in range (self.bin_image.height()):
+            for x in range (self.bin_image.width()):
+                pix = self.bin_image.pixel(x,y)
+                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                if (x > (kernel_range - 1)) and (x < (self.bin_image.width() - kernel_range)) and (y > (kernel_range - 1)) and (y < (self.bin_image.height() - kernel_range)):
+                    r, g, b = func([r, g, b], [x,y], kernel)
+                image.setPixelColor(x,y, QColor(r,g,b))
+        return image
+
+    def __binarization(self, image, treshhold = MAX_COLOR_VALUE/2):
+        for y in range (image.height()):
+            for x in range (image.width()):
+                pix = image.pixel(x,y)
+                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                avg = round((r + g + b) / 3)
+                if (avg > treshhold):
+                    r,g,b = [255,255,255]
+                else:
+                    r,g,b = [0,0,0]
+                image.setPixelColor(x,y, QColor(r,g,b))
+        return image  
+
     def dilation(self, image):
         print("Dilation")
         return image
 
-    def erosion(self,image):
-        print("erosion")
-        return image
+    def __erosion(self,color,pos,kernel):
+        kernel_range = math.floor(len(kernel) / 2)
+        for x in range(pos[0] - kernel_range, pos[0] + (kernel_range + 1)): 
+            for y in range(pos[1] - kernel_range, pos[1] + (kernel_range + 1)):
+                idxX = x - (pos[0] - kernel_range)
+                idxY = y - (pos[1] - kernel_range)
+                kernelVal = kernel[idxX][idxY]
+                pix = self.bin_image.pixel(x,y)
+                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                if (kernelVal != r):
+                    return [0,0,0]
+        return [255,255,255]
     
     def opening(self,image):
         print("opening")
@@ -41,6 +81,8 @@ class ImageConverter:
         print("hit or miss")
         return image
 
+    def erosion(self,kernel):
+        return self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
 class Form(QDialog):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
@@ -63,7 +105,11 @@ class Form(QDialog):
         self.layout.addRow(submitBtn)
         self.successLabel = QLabel(" ")
         self.layout.addRow(self.successLabel)
-
+        self.kernelRow = QHBoxLayout()
+        self.layout.addRow(self.kernelRow)
+        self.table = QTableView()
+        self.layout.addRow(self.table)
+        self.__initKernelInput()
         self.setLayout(self.layout)
 
     def __open(self):
@@ -75,6 +121,7 @@ class Form(QDialog):
 
         self.img = QImage(filePath)
         self.img = self.__fixScale(self.img)
+        self.converter.setOriginal(QPixmap.fromImage(self.img).toImage())
         self.__showImage()
 
         self.original = QImage(filePath)
@@ -98,6 +145,37 @@ class Form(QDialog):
             image = image.scaledToWidth(50)
         return image
 
+    def __readKernelInput(self):
+        kernel = []
+        model = self.table.model()
+        for row in range(model.rowCount()):
+            kernel.append([])
+            for column in range(model.columnCount()):
+                index = model.index(row, column)
+                try:
+                    kernel[row].append(float(model.data(index)))
+                except TypeError: 
+                    return None
+        return kernel
+
+    def __sizeChanged(self):
+        size = self.kernelSizeInput.value()
+        self.model = QStandardItemModel(size,size,self)
+        self.table.setModel(self.model)
+        self.update()
+
+    def __initKernelInput(self):
+        self.kernelSize = QLabel("Kernel size: ")
+        self.kernelSizeInput = QSpinBox()
+        self.kernelSizeInput.setMinimum(3)
+        self.kernelSizeInput.setMaximum(51)
+        self.kernelSizeInput.setSingleStep(2)
+        self.kernelSizeInput.valueChanged.connect(self.__sizeChanged)
+        self.kernelRow.addWidget(self.kernelSize)
+        self.kernelRow.addWidget(self.kernelSizeInput)
+        self.__sizeChanged()
+        self.update()
+
     def __processImage(self):
         self.successLabel.setText(" ")
         self.update()
@@ -107,10 +185,18 @@ class Form(QDialog):
         pos = self.menu.currentIndex()
         print('Mode: {}'.format(pos))
 
+        if self.kernelSizeInput.value() % 2 == 0:
+            self.__showErrorMessage("Mask size must be odd", "Invalid value")
+            return
+        kernel = self.__readKernelInput()
+        if (kernel is None): 
+            self.__showErrorMessage("Invalid kernel", "Invalid value")
+            return
+        print('Kernel: {}'.format(kernel))
         if (int(pos) == 0):
             self.img = self.converter.dilation(QPixmap.fromImage(self.original).toImage())
         elif (int(pos) == 1):
-            self.img = self.converter.erosion(QPixmap.fromImage(self.original).toImage())
+            self.img = self.converter.erosion(kernel)
         elif (int(pos) == 2):
             self.img = self.converter.opening(QPixmap.fromImage(self.original).toImage())
         elif (int(pos) == 3):
