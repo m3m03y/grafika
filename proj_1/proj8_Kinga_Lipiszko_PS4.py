@@ -97,9 +97,9 @@ class ImageConverter:
         self.bin_image = QPixmap.fromImage(self.temp).toImage()
         return image
 
-    def hit_or_miss(self,image):
+    def hit_or_miss(self,kernel,miss):
         print("hit or miss")
-        return image
+        return QPixmap.fromImage(self.bin_image).toImage()
 class Form(QDialog):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
@@ -125,7 +125,9 @@ class Form(QDialog):
         self.kernelRow = QHBoxLayout()
         self.layout.addRow(self.kernelRow)
         self.table = QTableView()
-        self.layout.addRow(self.table)
+        self.layout.addRow(self.table)        
+        self.miss = QTableView()
+        self.layout.addRow(self.miss)
         self.__initKernelInput()
         self.setLayout(self.layout)
 
@@ -162,9 +164,9 @@ class Form(QDialog):
             image = image.scaledToWidth(50)
         return image
 
-    def __readKernelInput(self):
+    def __readKernelInput(self, table):
         kernel = []
-        model = self.table.model()
+        model = table.model()
         for row in range(model.rowCount()):
             kernel.append([])
             for column in range(model.columnCount()):
@@ -179,6 +181,8 @@ class Form(QDialog):
         size = self.kernelSizeInput.value()
         self.model = QStandardItemModel(size,size,self)
         self.table.setModel(self.model)
+        self.model_miss = QStandardItemModel(size,size,self)
+        self.miss.setModel(self.model_miss)
         self.update()
 
     def __initKernelInput(self):
@@ -205,11 +209,12 @@ class Form(QDialog):
         if self.kernelSizeInput.value() % 2 == 0:
             self.__showErrorMessage("Mask size must be odd", "Invalid value")
             return
-        kernel = self.__readKernelInput()
+        kernel = self.__readKernelInput(self.table)
         if (kernel is None): 
             self.__showErrorMessage("Invalid kernel", "Invalid value")
             return
         print('Kernel: {}'.format(kernel))
+
         if (int(pos) == 0):
             self.img = self.converter.dilation(kernel)
         elif (int(pos) == 1):
@@ -219,7 +224,12 @@ class Form(QDialog):
         elif (int(pos) == 3):
             self.img = self.converter.closing(kernel)
         elif (int(pos) == 4):
-            self.img = self.converter.hit_or_miss(QPixmap.fromImage(self.original).toImage())
+            miss = self.__readKernelInput(self.miss)
+            if (miss is None): 
+                self.__showErrorMessage("Invalid miss values", "Invalid value")
+                return
+            print('Miss: {}'.format(miss))
+            self.img = self.converter.hit_or_miss(kernel,miss)
         self.successLabel.setText("Done!")
         self.__fixScale(self.img)
         self.__showImage()
