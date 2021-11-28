@@ -27,7 +27,7 @@ class ImageConverter:
         self.bin_image = self.__binarization(QPixmap.fromImage(image).toImage())
         self.temp = self.__binarization(QPixmap.fromImage(image).toImage())
 
-    def __processImageFiltering(self, func, image, kernel):
+    def __processImageFiltering(self, func, image, kernel, miss = None):
         if (kernel is not None):
             kernel_range = math.floor(len(kernel) / 2)
         else: kernel_range = 1
@@ -36,7 +36,8 @@ class ImageConverter:
                 pix = self.bin_image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
                 if (x > (kernel_range - 1)) and (x < (self.bin_image.width() - kernel_range)) and (y > (kernel_range - 1)) and (y < (self.bin_image.height() - kernel_range)):
-                    r, g, b = func([x,y], kernel)
+                    if (miss == None): r, g, b = func([x,y], kernel)
+                    else: r, g, b = func([x,y], kernel,miss)
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image
 
@@ -77,6 +78,20 @@ class ImageConverter:
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
                 if (kernelVal != r):
                     return [0,0,0]
+        return [255,255,255]    
+    
+    def __hit_or_miss(self,pos,kernel,miss):
+        kernel_range = math.floor(len(kernel) / 2)
+        for x in range(pos[0] - kernel_range, pos[0] + (kernel_range + 1)): 
+            for y in range(pos[1] - kernel_range, pos[1] + (kernel_range + 1)):
+                idxX = x - (pos[0] - kernel_range)
+                idxY = y - (pos[1] - kernel_range)
+                kernelVal = kernel[idxX][idxY]
+                missVal = miss[idxX][idxY]
+                pix = self.bin_image.pixel(x,y)
+                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                if not((kernelVal == r) and (missVal != r)):
+                    return [0,0,0]
         return [255,255,255]
     
     def dilation(self,kernel):
@@ -98,8 +113,7 @@ class ImageConverter:
         return image
 
     def hit_or_miss(self,kernel,miss):
-        print("hit or miss")
-        return QPixmap.fromImage(self.bin_image).toImage()
+        return self.__processImageFiltering(self.__hit_or_miss,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss)
 class Form(QDialog):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
