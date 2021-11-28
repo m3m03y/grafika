@@ -25,6 +25,7 @@ class ImageConverter:
     def setOriginal(self,image):
         self.original = QPixmap.fromImage(image).toImage()
         self.bin_image = self.__binarization(QPixmap.fromImage(image).toImage())
+        self.temp = self.__binarization(QPixmap.fromImage(image).toImage())
 
     def __processImageFiltering(self, func, image, kernel):
         if (kernel is not None):
@@ -35,7 +36,7 @@ class ImageConverter:
                 pix = self.bin_image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
                 if (x > (kernel_range - 1)) and (x < (self.bin_image.width() - kernel_range)) and (y > (kernel_range - 1)) and (y < (self.bin_image.height() - kernel_range)):
-                    r, g, b = func([r, g, b], [x,y], kernel)
+                    r, g, b = func([x,y], kernel)
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image
 
@@ -52,11 +53,20 @@ class ImageConverter:
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image  
 
-    def dilation(self, image):
-        print("Dilation")
-        return image
+    def __dilation(self, pos, kernel):
+        kernel_range = math.floor(len(kernel) / 2)
+        for x in range(pos[0] - kernel_range, pos[0] + (kernel_range + 1)): 
+            for y in range(pos[1] - kernel_range, pos[1] + (kernel_range + 1)):
+                idxX = x - (pos[0] - kernel_range)
+                idxY = y - (pos[1] - kernel_range)
+                kernelVal = kernel[idxX][idxY]
+                pix = self.bin_image.pixel(x,y)
+                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
+                if (kernelVal == r):
+                    return [255,255,255]
+        return [0,0,0]
 
-    def __erosion(self,color,pos,kernel):
+    def __erosion(self,pos,kernel):
         kernel_range = math.floor(len(kernel) / 2)
         for x in range(pos[0] - kernel_range, pos[0] + (kernel_range + 1)): 
             for y in range(pos[1] - kernel_range, pos[1] + (kernel_range + 1)):
@@ -69,20 +79,27 @@ class ImageConverter:
                     return [0,0,0]
         return [255,255,255]
     
-    def opening(self,image):
-        print("opening")
+    def dilation(self,kernel):
+        return self.__processImageFiltering(self.__dilation,QPixmap.fromImage(self.bin_image).toImage(),kernel)   
+
+    def erosion(self,kernel):
+        return self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
+
+    def opening(self,kernel):
+        self.bin_image = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
+        image = self.__processImageFiltering(self.__dilation,QPixmap.fromImage(self.bin_image).toImage(),kernel)
+        self.bin_image = QPixmap.fromImage(self.temp).toImage()
         return image
 
-    def closing(self,image):
-        print("closing")
+    def closing(self,kernel):
+        self.bin_image = self.__processImageFiltering(self.__dilation,QPixmap.fromImage(self.bin_image).toImage(),kernel)
+        image = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
+        self.bin_image = QPixmap.fromImage(self.temp).toImage()
         return image
 
     def hit_or_miss(self,image):
         print("hit or miss")
         return image
-
-    def erosion(self,kernel):
-        return self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
 class Form(QDialog):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
@@ -194,13 +211,13 @@ class Form(QDialog):
             return
         print('Kernel: {}'.format(kernel))
         if (int(pos) == 0):
-            self.img = self.converter.dilation(QPixmap.fromImage(self.original).toImage())
+            self.img = self.converter.dilation(kernel)
         elif (int(pos) == 1):
             self.img = self.converter.erosion(kernel)
         elif (int(pos) == 2):
-            self.img = self.converter.opening(QPixmap.fromImage(self.original).toImage())
+            self.img = self.converter.opening(kernel)
         elif (int(pos) == 3):
-            self.img = self.converter.closing(QPixmap.fromImage(self.original).toImage())
+            self.img = self.converter.closing(kernel)
         elif (int(pos) == 4):
             self.img = self.converter.hit_or_miss(QPixmap.fromImage(self.original).toImage())
         self.successLabel.setText("Done!")
