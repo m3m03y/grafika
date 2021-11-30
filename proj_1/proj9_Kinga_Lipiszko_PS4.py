@@ -73,7 +73,7 @@ class Form(QDialog):
                     b_perc = b/sum_one
                 else: r_perc,g_perc,b_perc = 0,0,0
                 if (g_perc > r_perc) and (g_perc > b_perc):
-                    self.img.setPixelColor(x,y, QColor(min(r + 150,255),g,b))
+                    self.img.setPixelColor(x,y, QColor(min(r + MAX_COLOR_VALUE/2,255),g,b))
                     sum_pixels += 1
         calc = round(sum_pixels/pixels_count * 100,2)
         print('Percentage {}%'.format(calc))
