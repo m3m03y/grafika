@@ -186,7 +186,13 @@ class Form(QDialog):
             for column in range(model.columnCount()):
                 index = model.index(row, column)
                 try:
-                    kernel[row].append(float(model.data(index)))
+                    val = model.data(index)
+                    if (float(val) == 0):
+                        kernel[row].append(float(0))                    
+                    elif (float(val) == 1):
+                        kernel[row].append(float(255))
+                    else:
+                        return None
                 except TypeError: 
                     return None
         return kernel
@@ -194,8 +200,14 @@ class Form(QDialog):
     def __sizeChanged(self):
         size = self.kernelSizeInput.value()
         self.model = QStandardItemModel(size,size,self)
+        for i in range(size):
+            for j in range(size):
+                self.model.setData(self.model.index(i,j), float(1.0))
         self.table.setModel(self.model)
         self.model_miss = QStandardItemModel(size,size,self)
+        for i in range(size):
+            for j in range(size):
+                self.model_miss.setData(self.model_miss.index(i,j), float(1.0))
         self.miss.setModel(self.model_miss)
         self.update()
 
@@ -225,7 +237,7 @@ class Form(QDialog):
             return
         kernel = self.__readKernelInput(self.table)
         if (kernel is None): 
-            self.__showErrorMessage("Invalid kernel", "Invalid value")
+            self.__showErrorMessage("Invalid kernel, values must be 0 or 1", "Invalid value")
             return
         print('Kernel: {}'.format(kernel))
 
@@ -240,7 +252,7 @@ class Form(QDialog):
         elif (int(pos) == 4):
             miss = self.__readKernelInput(self.miss)
             if (miss is None): 
-                self.__showErrorMessage("Invalid miss values", "Invalid value")
+                self.__showErrorMessage("Invalid miss values, values must be 0 or 1", "Invalid value")
                 return
             print('Miss: {}'.format(miss))
             self.img = self.converter.hit_or_miss(kernel,miss)
