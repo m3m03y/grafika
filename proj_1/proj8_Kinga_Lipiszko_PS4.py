@@ -82,6 +82,19 @@ class ImageConverter:
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image  
     
+    def __rotate(self, matrix):
+        temp_matrix = []
+        column = len(matrix)-1
+        for column in range(len(matrix)):
+            temp = []
+            for row in range(len(matrix)-1,-1,-1):
+                temp.append(matrix[row][column])
+            temp_matrix.append(temp)
+        for i in range(len(matrix)):
+            for j in range(len(matrix)):
+                matrix[i][j] = temp_matrix[i][j]
+        return matrix
+  
     def __dilation(self, pos, kernel):
         kernel_range = math.floor(len(kernel) / 2)
         for x in range(pos[0] - kernel_range, pos[0] + (kernel_range + 1)): 
@@ -179,10 +192,16 @@ class ImageConverter:
         return self.__addTwoImages(image1,image2)
     
     def thickening(self,kernel,miss):
-        return self.__processImageFiltering(self.__hit_or_miss_thickening,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss)    
+        return self.__processImageFiltering(self.__hit_or_miss_thinning,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss)
     
     def thinning(self,kernel,miss):
-        return self.__processImageFiltering(self.__hit_or_miss_thinning,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss)
+        for i in range(4):
+            self.bin_image = self.__processImageFiltering(self.__hit_or_miss,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss)
+            kernel = self.__rotate(kernel)
+            miss = self.__rotate(miss)
+        image = QPixmap.fromImage(self.bin_image).toImage()
+        self.bin_image = QPixmap.fromImage(self.temp).toImage()
+        return image   
 class Form(QDialog):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
