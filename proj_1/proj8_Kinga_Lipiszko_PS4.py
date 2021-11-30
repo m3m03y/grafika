@@ -62,14 +62,31 @@ class ImageConverter:
             for x in range (image1.width()):
                 pix1 = image1.pixel(x,y)
                 r1 = qRed(pix1)
-                pix2 = image1.pixel(x,y)
+                pix2 = image2.pixel(x,y)
                 r2 = qRed(pix2)
                 if (r1 == r2):
                     r = r1
                 else: r = 0
                 image.setPixelColor(x,y, QColor(r,r,r))
         return image  
-    
+
+    def __sumTwoImages(self,image1, image2):
+        image = QPixmap.fromImage(image1).toImage()
+        for y in range (image1.height()):
+            for x in range (image1.width()):
+                pix1 = image1.pixel(x,y)
+                r1 = qRed(pix1)
+                pix2 = image2.pixel(x,y)
+                r2 = qRed(pix2)
+                if (r1 == 255) or (r2 == 255):
+                    r = 255
+                else: r = 0
+                image.setPixelColor(x,y, QColor(r,r,r))
+        return image  
+
+    def __subtractTwoImages(self,image1,image2):
+        return self.__addTwoImages(image1, self.__reverse(image2))
+ 
     def __reverse(self, image):
         for y in range (image.height()):
             for x in range (image.width()):
@@ -117,7 +134,7 @@ class ImageConverter:
                 kernelVal = kernel[idxX][idxY]
                 pix = self.bin_image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if (kernelVal != r):
+                if ((kernelVal != r) and (kernelVal != -255)):
                     return [0,0,0]
         return [255,255,255]    
     
@@ -131,38 +148,10 @@ class ImageConverter:
                 missVal = miss[idxX][idxY]
                 pix = self.bin_image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if not((kernelVal == r) and (missVal != r)):
+                if not(((kernelVal == -255) and (missVal != r)) or ((kernelVal == r) and (missVal != r)) or ((kernelVal == r) and (missVal == -255))):
                     return [0,0,0]
         return [255,255,255]
-    
-    def __hit_or_miss_thickening(self,pos,kernel,miss):
-        kernel_range = math.floor(len(kernel) / 2)
-        for x in range(pos[0] - kernel_range, pos[0] + (kernel_range + 1)): 
-            for y in range(pos[1] - kernel_range, pos[1] + (kernel_range + 1)):
-                idxX = x - (pos[0] - kernel_range)
-                idxY = y - (pos[1] - kernel_range)
-                kernelVal = kernel[idxX][idxY]
-                missVal = miss[idxX][idxY]
-                pix = self.bin_image.pixel(x,y)
-                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if not((kernelVal == r) and (missVal != r)):
-                    return [0,0,0]
-        return [255,255,255]
-    
-    def __hit_or_miss_thinning(self,pos,kernel,miss):
-        kernel_range = math.floor(len(kernel) / 2)
-        for x in range(pos[0] - kernel_range, pos[0] + (kernel_range + 1)): 
-            for y in range(pos[1] - kernel_range, pos[1] + (kernel_range + 1)):
-                idxX = x - (pos[0] - kernel_range)
-                idxY = y - (pos[1] - kernel_range)
-                kernelVal = kernel[idxX][idxY]
-                missVal = miss[idxX][idxY]
-                pix = self.bin_image.pixel(x,y)
-                r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if not((kernelVal == r) and (missVal != r)):
-                    return [0,0,0]
-        return [255,255,255]
-    
+        
     def dilation(self,kernel):
         return self.__processImageFiltering(self.__dilation,QPixmap.fromImage(self.bin_image).toImage(),kernel)   
 
@@ -182,7 +171,8 @@ class ImageConverter:
         return image
 
     def hit_or_miss(self,kernel,miss):
-        return self.__processImageFiltering(self.__hit_or_miss,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss) 
+        return self.hit_or_miss_from_erosion(kernel,miss)
+        # return self.__processImageFiltering(self.__hit_or_miss,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss) 
        
     def hit_or_miss_from_erosion(self,kernel,miss):
         image1 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
@@ -192,16 +182,25 @@ class ImageConverter:
         return self.__addTwoImages(image1,image2)
     
     def thickening(self,kernel,miss):
-        return self.__processImageFiltering(self.__hit_or_miss_thinning,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss)
-    
-    def thinning(self,kernel,miss):
         for i in range(4):
-            self.bin_image = self.__processImageFiltering(self.__hit_or_miss,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss)
+            proccessed = self.hit_or_miss_from_erosion(kernel,miss)
             kernel = self.__rotate(kernel)
             miss = self.__rotate(miss)
+            self.bin_image = self.__sumTwoImages(self.bin_image, proccessed)
         image = QPixmap.fromImage(self.bin_image).toImage()
         self.bin_image = QPixmap.fromImage(self.temp).toImage()
         return image   
+
+    def thinning(self,kernel,miss):
+        for i in range(4):
+            proccessed = self.hit_or_miss_from_erosion(kernel,miss)
+            kernel = self.__rotate(kernel)
+            miss = self.__rotate(miss)
+            self.bin_image = self.__subtractTwoImages(self.bin_image, proccessed)
+        image = QPixmap.fromImage(self.bin_image).toImage()
+        self.bin_image = QPixmap.fromImage(self.temp).toImage()
+        return image   
+
 class Form(QDialog):
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
@@ -280,6 +279,8 @@ class Form(QDialog):
                         kernel[row].append(float(0))                    
                     elif (float(val) == 1):
                         kernel[row].append(float(255))
+                    elif (float(val) == -1):
+                        kernel[row].append(float(-255))
                     else:
                         return None
                 except TypeError: 
