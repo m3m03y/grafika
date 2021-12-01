@@ -64,9 +64,7 @@ class ImageConverter:
                 r1 = qRed(pix1)
                 pix2 = image2.pixel(x,y)
                 r2 = qRed(pix2)
-                if (r1 == r2):
-                    r = r1
-                else: r = 0
+                r = max(min(r1,r2),0)
                 image.setPixelColor(x,y, QColor(r,r,r))
         return image  
 
@@ -78,9 +76,7 @@ class ImageConverter:
                 r1 = qRed(pix1)
                 pix2 = image2.pixel(x,y)
                 r2 = qRed(pix2)
-                if (r1 == 255) or (r2 == 255):
-                    r = 255
-                else: r = 0
+                r = max(max(r1,r2),0)
                 image.setPixelColor(x,y, QColor(r,r,r))
         return image  
 
@@ -151,7 +147,18 @@ class ImageConverter:
                 if not(((kernelVal == -255) and (missVal != r)) or ((kernelVal == r) and (missVal != r)) or ((kernelVal == r) and (missVal == -255))):
                     return [0,0,0]
         return [255,255,255]
-        
+    
+    def printPixels(self,image):
+        print('------------')
+        for y in range (image.height()):
+            row = []
+            for x in range (image.width()):
+                pix1 = image.pixel(x,y)
+                r = qRed(pix1)
+                row.append(r)
+            print(' '.join([str(i) for i in row]))
+                
+
     def dilation(self,kernel):
         return self.__processImageFiltering(self.__dilation,QPixmap.fromImage(self.bin_image).toImage(),kernel)   
 
@@ -182,21 +189,29 @@ class ImageConverter:
         return self.__addTwoImages(image1,image2)
     
     def thickening(self,kernel,miss):
-        for i in range(4):
-            proccessed = self.hit_or_miss_from_erosion(kernel,miss)
+        for i in range(40):
+            image1 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
+            self.bin_image = self.__sumTwoImages(self.bin_image, image1)
+            self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
+            image2 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),miss)
+            self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
+            self.bin_image = self.__sumTwoImages(self.bin_image, image2)
             kernel = self.__rotate(kernel)
             miss = self.__rotate(miss)
-            self.bin_image = self.__sumTwoImages(self.bin_image, proccessed)
         image = QPixmap.fromImage(self.bin_image).toImage()
         self.bin_image = QPixmap.fromImage(self.temp).toImage()
         return image   
 
     def thinning(self,kernel,miss):
-        for i in range(4):
-            proccessed = self.hit_or_miss_from_erosion(kernel,miss)
+        for i in range(40):
+            image1 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
+            self.bin_image = self.__subtractTwoImages(self.bin_image, image1)
+            self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
+            image2 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),miss)
+            self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
+            self.bin_image = self.__subtractTwoImages(self.bin_image, image2)
             kernel = self.__rotate(kernel)
             miss = self.__rotate(miss)
-            self.bin_image = self.__subtractTwoImages(self.bin_image, proccessed)
         image = QPixmap.fromImage(self.bin_image).toImage()
         self.bin_image = QPixmap.fromImage(self.temp).toImage()
         return image   
@@ -258,11 +273,11 @@ class Form(QDialog):
     def __fixScale(self, image):
         if (image.height() > 600):
             image = image.scaledToHeight(600)
-        elif (image.height() < 50):
+        elif (image.height() < 200):
             image = image.scaledToHeight(200)
         if (image.width() > 800):
             image = image.scaledToWidth(800)        
-        elif (image.width() < 50):
+        elif (image.width() < 200):
             image = image.scaledToWidth(200)
         return image
 
