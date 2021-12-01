@@ -20,6 +20,21 @@ MIN_VAL = 0
 MAX_VAL = 255
 MAX_COLOR_VALUE = 255
 
+THICK_HIT = [[255,255,0],
+             [255,-255,0],
+             [255,0,-255]]
+
+THICK_MISS = [[0,255,255],
+              [0,-255,0],
+              [-255,0,255]]
+
+THIN_HIT = [[0,0,0],
+             [-255,255,-255],
+             [255,255,255]]
+
+THIN_MISS = [[-255,0,0],
+              [255,255,0],
+              [-255,255,-255]]
 class ImageConverter:
     def __init__(self):
         ...
@@ -56,7 +71,7 @@ class ImageConverter:
                 image.setPixelColor(x,y, QColor(r,g,b))
         return image  
     
-    def __addTwoImages(self,image1, image2):
+    def __andTwoImages(self,image1, image2):
         image = QPixmap.fromImage(image1).toImage()
         for y in range (image1.height()):
             for x in range (image1.width()):
@@ -81,7 +96,7 @@ class ImageConverter:
         return image  
 
     def __subtractTwoImages(self,image1,image2):
-        return self.__addTwoImages(image1, self.__reverse(image2))
+        return self.__andTwoImages(image1, self.__reverse(image2))
  
     def __reverse(self, image):
         for y in range (image.height()):
@@ -130,7 +145,7 @@ class ImageConverter:
                 kernelVal = kernel[idxX][idxY]
                 pix = self.bin_image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if ((kernelVal != r) and (kernelVal != -255)):
+                if (kernelVal != r) and (kernelVal != -255):
                     return [0,0,0]
         return [255,255,255]    
     
@@ -144,7 +159,7 @@ class ImageConverter:
                 missVal = miss[idxX][idxY]
                 pix = self.bin_image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if not(((kernelVal == -255) and (missVal != r)) or ((kernelVal == r) and (missVal != r)) or ((kernelVal == r) and (missVal == -255))):
+                if not((kernelVal == r) or (missVal != r)):
                     return [0,0,0]
         return [255,255,255]
     
@@ -178,24 +193,30 @@ class ImageConverter:
         return image
 
     def hit_or_miss(self,kernel,miss):
-        return self.hit_or_miss_from_erosion(kernel,miss)
-        # return self.__processImageFiltering(self.__hit_or_miss,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss) 
+        # return self.hit_or_miss_from_erosion(kernel,miss)
+        return self.__processImageFiltering(self.__hit_or_miss,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss) 
        
     def hit_or_miss_from_erosion(self,kernel,miss):
         image1 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
         self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
         image2 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),miss)
         self.bin_image = QPixmap.fromImage(self.temp).toImage()
-        return self.__addTwoImages(image1,image2)
+        return self.__andTwoImages(image1,image2)
     
     def thickening(self,kernel,miss):
-        for i in range(40):
-            image1 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
-            self.bin_image = self.__sumTwoImages(self.bin_image, image1)
-            self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
-            image2 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),miss)
-            self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
-            self.bin_image = self.__sumTwoImages(self.bin_image, image2)
+        kernel = THICK_HIT
+        miss = THICK_MISS
+        for i in range(4):
+            # image1 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
+            # self.bin_image = self.__sumTwoImages(self.bin_image, image1)
+            # self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
+            # image2 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),miss)
+            # self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
+            # self.bin_image = self.__sumTwoImages(self.bin_image, image2)
+            proccessed = self.__processImageFiltering(self.__hit_or_miss,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss)
+            self.bin_image = self.__sumTwoImages(self.bin_image,proccessed)
+            kernel = self.__rotate(kernel)
+            miss = self.__rotate(miss)
             kernel = self.__rotate(kernel)
             miss = self.__rotate(miss)
         image = QPixmap.fromImage(self.bin_image).toImage()
@@ -203,13 +224,17 @@ class ImageConverter:
         return image   
 
     def thinning(self,kernel,miss):
-        for i in range(40):
-            image1 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
-            self.bin_image = self.__subtractTwoImages(self.bin_image, image1)
-            self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
-            image2 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),miss)
-            self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
-            self.bin_image = self.__subtractTwoImages(self.bin_image, image2)
+        kernel = THIN_HIT
+        miss = THIN_MISS
+        for i in range(4):
+            # image1 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),kernel)
+            # self.bin_image = self.__subtractTwoImages(self.bin_image, image1)
+            # self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
+            # image2 = self.__processImageFiltering(self.__erosion,QPixmap.fromImage(self.bin_image).toImage(),miss)
+            # self.bin_image = self.__reverse(QPixmap.fromImage(self.bin_image).toImage())
+            # self.bin_image = self.__subtractTwoImages(self.bin_image, image2)
+            proccessed = self.__processImageFiltering(self.__hit_or_miss,QPixmap.fromImage(self.bin_image).toImage(),kernel,miss)
+            self.bin_image = self.__subtractTwoImages(self.bin_image,proccessed)
             kernel = self.__rotate(kernel)
             miss = self.__rotate(miss)
         image = QPixmap.fromImage(self.bin_image).toImage()
