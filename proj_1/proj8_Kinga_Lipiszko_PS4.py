@@ -159,7 +159,7 @@ class ImageConverter:
                 missVal = miss[idxX][idxY]
                 pix = self.bin_image.pixel(x,y)
                 r,g,b = qRed(pix), qGreen(pix), qBlue(pix)
-                if not((kernelVal == r) or (missVal != r)):
+                if not((kernelVal == r) or (missVal != r)): #TODO: OR or AND ???
                     return [0,0,0]
         return [255,255,255]
     
