@@ -227,7 +227,7 @@ class Form(QDialog):
         self.layout.addRow(openBtn)
         self.image_label = QLabel(" ")
         self.image_original_label = QLabel(" ")
-        self.layout.addRow(self.image_label , self.image_original_label)
+        self.layout.addRow(self.image_original_label,self.image_label )
         self.menu = QComboBox()
         self.menu.addItems(MODES)
         self.menu.currentIndexChanged.connect(self.__changeMode)
